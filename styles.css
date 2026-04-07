@@ -19,6 +19,41 @@ body {
   font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
+.install-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.95rem;
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.install-banner button {
+  background: #fff;
+  color: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.install-banner button.secondary {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
 .app-shell {
   max-width: 1000px;
   margin: 0 auto;
