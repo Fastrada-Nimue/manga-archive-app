@@ -1,4 +1,4 @@
-const CACHE_NAME = "manga-archive-v1";
+const CACHE_NAME = "manga-archive-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,6 +27,30 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isDocument =
+    event.request.mode === "navigate" ||
+    event.request.destination === "document";
+
+  // For top-level pages, prefer network so installed app stays fresh online.
+  if (isSameOrigin && isDocument) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          return cached || caches.match("./index.html");
+        }),
+    );
+    return;
+  }
+
+  // For other files, use cache first then network update.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -37,7 +61,12 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match("./index.html"));
+        .catch(() => {
+          if (isSameOrigin && event.request.destination === "image") {
+            return caches.match("./assets/icon-192.png");
+          }
+          return new Response("", { status: 504, statusText: "Gateway Timeout" });
+        });
     }),
   );
 });
