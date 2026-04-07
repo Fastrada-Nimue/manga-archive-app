@@ -193,6 +193,13 @@ button:hover,
   font-size: 1.1rem;
 }
 
+.entry-subtitle {
+  margin: 0.2rem 0 0;
+  color: #4d6a62;
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
 .entry-meta {
   margin: 0.25rem 0 0;
   color: var(--muted);
