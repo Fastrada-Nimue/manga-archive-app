@@ -441,7 +441,7 @@ async function onFetchUrl() {
 
 async function fetchMangaDex(uuid) {
   const res = await fetch(
-    `https://api.mangadex.org/manga/${encodeURIComponent(uuid)}?includes[]=tag`,
+    `https://api.mangadex.org/manga/${encodeURIComponent(uuid)}?includes[]=tag&includes[]=cover_art`,
     { headers: { Accept: "application/json" } },
   );
   if (!res.ok) throw new Error(`MangaDex ${res.status}`);
@@ -464,12 +464,19 @@ async function fetchMangaDex(uuid) {
     .filter(Boolean)
     .map((t) => t.toLowerCase());
 
+  const coverRelation = (json.data.relationships || []).find((r) => r.type === "cover_art");
+  const coverFileName = coverRelation?.attributes?.fileName;
+  const coverUrl = coverFileName
+    ? `https://uploads.mangadex.org/covers/${uuid}/${coverFileName}.512.jpg`
+    : null;
+
   return {
     source: "MangaDex",
     title,
     genres,
     tags,
     status: { ongoing: "reading", completed: "completed", hiatus: "on-hold", cancelled: "on-hold" }[attr.status] ?? "planned",
+    coverUrl,
   };
 }
 
@@ -481,6 +488,7 @@ async function fetchAniList(id) {
         status
         genres
         chapters
+        coverImage { large }
       }
     }
   `;
@@ -509,6 +517,7 @@ async function fetchAniList(id) {
     tags: [],
     status: statusMap[media.status] ?? "planned",
     latestChapter: normalizeNumber(media.chapters),
+    coverUrl: media.coverImage?.large || null,
   };
 }
 
@@ -540,6 +549,7 @@ async function fetchJikan(id) {
     tags,
     status,
     latestChapter: normalizeNumber(data.chapters),
+    coverUrl: data.images?.jpg?.large_image_url || data.images?.jpg?.image_url || null,
   };
 }
 
@@ -567,6 +577,7 @@ async function fetchManhuafastEnriched(title) {
     tags: ["manhuafast", ...(enriched?.tags || [])],
     status: enriched?.status || "planned",
     latestChapter: enriched?.latestChapter ?? null,
+    coverUrl: enriched?.coverUrl || null,
   };
 }
 
@@ -587,6 +598,7 @@ async function fetchAniListBySearch(title) {
         status
         genres
         chapters
+        coverImage { large }
       }
     }
   `;
@@ -617,6 +629,7 @@ async function fetchAniListBySearch(title) {
       tags: [],
       status: statusMap[media.status] ?? "planned",
       latestChapter: normalizeNumber(media.chapters),
+      coverUrl: media.coverImage?.large || null,
     };
   } catch {
     return null;
@@ -641,6 +654,10 @@ function fillFormFromMeta(meta) {
   }
   if (meta.chapter != null) {
     elements.chapter.value = meta.chapter;
+  }
+  if (meta.coverUrl && !state.coverDataUrl) {
+    state.coverDataUrl = meta.coverUrl;
+    syncCoverPreview();
   }
 }
 
