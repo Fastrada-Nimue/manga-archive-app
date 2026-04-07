@@ -120,6 +120,7 @@ function onSave(event) {
     id: elements.id.value || createId(),
     title: elements.title.value.trim(),
     translatedTitle: elements.translatedTitle.value.trim(),
+    sourceUrl: elements.urlImport.value.trim(),
     series: elements.series.value.trim(),
     genres: parseList(elements.genres.value),
     tags: parseList(elements.tags.value),
@@ -209,6 +210,7 @@ function render() {
         }
         <div class="entry-actions">
           <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
+          <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh Latest</button>
           <button type="button" class="secondary" data-action="delete" data-id="${entry.id}">Delete</button>
         </div>
       </article>
@@ -221,6 +223,7 @@ function render() {
       const action = button.getAttribute("data-action");
       const id = button.getAttribute("data-id");
       if (action === "edit") editEntry(id);
+      if (action === "refresh") void refreshEntry(id);
       if (action === "delete") deleteEntry(id);
     });
   });
@@ -233,6 +236,7 @@ function editEntry(id) {
   elements.id.value = entry.id;
   elements.title.value = entry.title || "";
   elements.translatedTitle.value = entry.translatedTitle || "";
+  elements.urlImport.value = entry.sourceUrl || "";
   elements.series.value = entry.series || "";
   elements.genres.value = (entry.genres || []).join(", ");
   elements.tags.value = (entry.tags || []).join(", ");
@@ -364,6 +368,7 @@ function normalizeEntry(raw) {
     id: raw.id || createId(),
     title: String(raw.title || ""),
     translatedTitle: String(raw.translatedTitle || ""),
+    sourceUrl: String(raw.sourceUrl || ""),
     series: String(raw.series || ""),
     genres: normalizeStringArray(raw.genres),
     tags: normalizeStringArray(raw.tags),
@@ -376,6 +381,37 @@ function normalizeEntry(raw) {
     coverDataUrl: typeof raw.coverDataUrl === "string" ? raw.coverDataUrl : null,
     updatedAt: raw.updatedAt || new Date().toISOString(),
   };
+}
+
+async function refreshEntry(id) {
+  const entry = state.entries.find((item) => item.id === id);
+  if (!entry) return;
+  if (!entry.sourceUrl) {
+    alert("No source URL saved for this entry. Edit it, paste a supported URL, then save.");
+    return;
+  }
+
+  try {
+    const meta = await fetchMetaFromUrl(entry.sourceUrl);
+    const index = state.entries.findIndex((item) => item.id === id);
+    if (index < 0) return;
+
+    const next = { ...state.entries[index] };
+    if (meta.latestChapter != null) next.latestChapter = meta.latestChapter;
+    if (meta.status) next.status = meta.status;
+    if (meta.genres?.length) next.genres = meta.genres;
+    if (meta.tags?.length) next.tags = meta.tags;
+    if (meta.coverUrl) next.coverDataUrl = meta.coverUrl;
+    next.updatedAt = new Date().toISOString();
+
+    state.entries[index] = normalizeEntry(next);
+    saveEntries();
+    render();
+    void maybeAutoCloudPush();
+    alert(`Updated latest chapter for ${next.title}.`);
+  } catch (error) {
+    alert(`Could not refresh this entry: ${error.message}`);
+  }
 }
 
 function normalizeStringArray(value) {
@@ -646,45 +682,10 @@ async function onFetchUrl() {
   const raw = elements.urlImport.value.trim();
   if (!raw) return;
 
-  let parsed;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    setFetchStatus("error", "Not a valid URL.");
-    return;
-  }
-
-  // Only allow known hosts — never fetch the user-supplied URL directly.
-  const host = parsed.hostname.replace(/^www\./, "");
-  const isManhuafast = host.endsWith("manhuafast.net");
-  const allowed = ["mangadex.org", "anilist.co", "myanimelist.net"];
-  if (!allowed.includes(host) && !isManhuafast) {
-    setFetchStatus("error", "Unsupported site. Paste a MangaDex, AniList, MyAnimeList, or ManhuaFast URL.");
-    return;
-  }
-
   setFetchStatus("loading", "Fetching details…");
 
   try {
-    let meta;
-    const mdMatch = URL_PATTERNS.mangadex.exec(raw);
-    const alMatch = URL_PATTERNS.anilist.exec(raw);
-    const malMatch = URL_PATTERNS.mal.exec(raw);
-    const mhMatch = URL_PATTERNS.manhuafast.exec(raw);
-
-    if (mdMatch)       meta = await fetchMangaDex(mdMatch[1]);
-    else if (alMatch)  meta = await fetchAniList(Number(alMatch[1]));
-    else if (malMatch) meta = await fetchJikan(Number(malMatch[1]));
-    else if (mhMatch)  meta = await fetchManhuafast(parsed);
-    else {
-      setFetchStatus("error", "Could not find a recognised ID in that URL.");
-      return;
-    }
-
-    const chapterFromUrl = extractChapterFromUrl(parsed);
-    if (chapterFromUrl != null && meta.chapter == null) {
-      meta.chapter = chapterFromUrl;
-    }
+    const meta = await fetchMetaFromUrl(raw);
 
     fillFormFromMeta(meta);
     setFetchStatus("success", `Auto-filled from ${meta.source}!`);
@@ -692,6 +693,42 @@ async function onFetchUrl() {
   } catch {
     setFetchStatus("error", "Fetch failed. The API may be temporarily unavailable — try again.");
   }
+}
+
+async function fetchMetaFromUrl(raw) {
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Not a valid URL.");
+  }
+
+  // Only allow known hosts — never fetch the user-supplied URL directly.
+  const host = parsed.hostname.replace(/^www\./, "");
+  const isManhuafast = host.endsWith("manhuafast.net");
+  const allowed = ["mangadex.org", "anilist.co", "myanimelist.net"];
+  if (!allowed.includes(host) && !isManhuafast) {
+    throw new Error("Unsupported site. Use MangaDex, AniList, MyAnimeList, or ManhuaFast URL.");
+  }
+
+  const mdMatch = URL_PATTERNS.mangadex.exec(raw);
+  const alMatch = URL_PATTERNS.anilist.exec(raw);
+  const malMatch = URL_PATTERNS.mal.exec(raw);
+  const mhMatch = URL_PATTERNS.manhuafast.exec(raw);
+
+  let meta;
+  if (mdMatch) meta = await fetchMangaDex(mdMatch[1]);
+  else if (alMatch) meta = await fetchAniList(Number(alMatch[1]));
+  else if (malMatch) meta = await fetchJikan(Number(malMatch[1]));
+  else if (mhMatch) meta = await fetchManhuafast(parsed);
+  else throw new Error("Could not find a recognised ID in that URL.");
+
+  const chapterFromUrl = extractChapterFromUrl(parsed);
+  if (chapterFromUrl != null && meta.chapter == null) {
+    meta.chapter = chapterFromUrl;
+  }
+
+  return meta;
 }
 
 async function fetchMangaDex(uuid) {
