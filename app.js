@@ -9,6 +9,7 @@ const elements = {
   form: document.getElementById("entry-form"),
   id: document.getElementById("entry-id"),
   title: document.getElementById("title"),
+  translatedTitle: document.getElementById("translated-title"),
   series: document.getElementById("series"),
   genres: document.getElementById("genres"),
   tags: document.getElementById("tags"),
@@ -103,6 +104,7 @@ function onSave(event) {
   const entry = {
     id: elements.id.value || createId(),
     title: elements.title.value.trim(),
+    translatedTitle: elements.translatedTitle.value.trim(),
     series: elements.series.value.trim(),
     genres: parseList(elements.genres.value),
     tags: parseList(elements.tags.value),
@@ -149,6 +151,7 @@ function render() {
     const matchesText =
       !query ||
       entry.title.toLowerCase().includes(query) ||
+      (entry.translatedTitle || "").toLowerCase().includes(query) ||
       (entry.series || "").toLowerCase().includes(query);
     const matchesStatus = status === "all" || entry.status === status;
     const matchesGenre = !genreQuery || (entry.genres || []).some((item) => item.includes(genreQuery));
@@ -175,6 +178,7 @@ function render() {
           }
           <div>
             <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
+            ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
             <p class="entry-meta">
               ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
             </p>
@@ -212,6 +216,7 @@ function editEntry(id) {
 
   elements.id.value = entry.id;
   elements.title.value = entry.title || "";
+  elements.translatedTitle.value = entry.translatedTitle || "";
   elements.series.value = entry.series || "";
   elements.genres.value = (entry.genres || []).join(", ");
   elements.tags.value = (entry.tags || []).join(", ");
@@ -340,6 +345,7 @@ function normalizeEntry(raw) {
   return {
     id: raw.id || createId(),
     title: String(raw.title || ""),
+    translatedTitle: String(raw.translatedTitle || ""),
     series: String(raw.series || ""),
     genres: normalizeStringArray(raw.genres),
     tags: normalizeStringArray(raw.tags),
@@ -453,6 +459,10 @@ async function fetchMangaDex(uuid) {
     attr.title?.en ||
     Object.values(attr.title || {})[0] ||
     "";
+  const translatedTitle = pickAlternateTitle(title, [
+    ...Object.values(attr.title || {}),
+    ...(attr.altTitles || []).flatMap((item) => Object.values(item || {})),
+  ]);
   const genres = (attr.tags || [])
     .filter((t) => t.attributes?.group === "genre")
     .map((t) => t.attributes?.name?.en || "")
@@ -473,6 +483,7 @@ async function fetchMangaDex(uuid) {
   return {
     source: "MangaDex",
     title,
+    translatedTitle,
     genres,
     tags,
     status: { ongoing: "reading", completed: "completed", hiatus: "on-hold", cancelled: "on-hold" }[attr.status] ?? "planned",
@@ -513,6 +524,9 @@ async function fetchAniList(id) {
   return {
     source: "AniList",
     title: media.title?.english || media.title?.romaji || "",
+    translatedTitle: media.title?.romaji && media.title?.english && media.title.romaji !== media.title.english
+      ? media.title.romaji
+      : "",
     genres: (media.genres || []).map((g) => g.toLowerCase()),
     tags: [],
     status: statusMap[media.status] ?? "planned",
@@ -545,6 +559,7 @@ async function fetchJikan(id) {
   return {
     source: "MyAnimeList",
     title: data.title_english || data.title || "",
+    translatedTitle: data.title_english && data.title && data.title_english !== data.title ? data.title : "",
     genres,
     tags,
     status,
@@ -573,6 +588,7 @@ async function fetchManhuafastEnriched(title) {
   return {
     source: enriched ? "ManhuaFast + AniList" : "ManhuaFast",
     title: enriched?.title || title,
+    translatedTitle: enriched?.translatedTitle || "",
     genres: enriched?.genres || [],
     tags: ["manhuafast", ...(enriched?.tags || [])],
     status: enriched?.status || "planned",
@@ -625,6 +641,9 @@ async function fetchAniListBySearch(title) {
 
     return {
       title: media.title?.english || media.title?.romaji || title,
+      translatedTitle: media.title?.romaji && media.title?.english && media.title.romaji !== media.title.english
+        ? media.title.romaji
+        : "",
       genres: (media.genres || []).map((item) => item.toLowerCase()),
       tags: [],
       status: statusMap[media.status] ?? "planned",
@@ -639,6 +658,9 @@ async function fetchAniListBySearch(title) {
 function fillFormFromMeta(meta) {
   if (meta.title && !elements.title.value.trim()) {
     elements.title.value = meta.title;
+  }
+  if (meta.translatedTitle && !elements.translatedTitle.value.trim()) {
+    elements.translatedTitle.value = meta.translatedTitle;
   }
   if (meta.genres?.length) {
     elements.genres.value = meta.genres.join(", ");
@@ -717,4 +739,15 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function pickAlternateTitle(primary, candidates) {
+  const normalizedPrimary = String(primary || "").trim().toLowerCase();
+  for (const item of candidates || []) {
+    const value = String(item || "").trim();
+    if (!value) continue;
+    if (value.toLowerCase() === normalizedPrimary) continue;
+    return value;
+  }
+  return "";
 }
