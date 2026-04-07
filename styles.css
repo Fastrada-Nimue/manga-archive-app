@@ -181,6 +181,34 @@ button:hover,
   color: var(--muted);
 }
 
+.url-import {
+  background: #f3eee4;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.url-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.url-row input {
+  flex: 1;
+}
+
+.fetch-status {
+  margin: 0.45rem 0 0;
+  font-size: 0.88rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+
+.fetch-loading { background: #eef3ff; color: #3a5bc7; }
+.fetch-success  { background: #eaffea; color: #1a7a35; }
+.fetch-error    { background: #fff0ef; color: #b33; }
+
 .cover-preview-wrap {
   display: flex;
   align-items: center;
