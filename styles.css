@@ -149,6 +149,21 @@ button:hover,
   margin-bottom: 0.8rem;
 }
 
+.toolbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  background: #fff;
+  font-size: 0.88rem;
+}
+
+.toolbar-toggle input {
+  margin: 0;
+}
+
 #import-json {
   display: none;
 }
@@ -192,6 +207,24 @@ button:hover,
 
 .entry-main {
   min-width: 0;
+}
+
+.entry-summary-line {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.entry-details {
+  margin-top: 0.2rem;
+}
+
+.entry-one-line .entry-details {
+  display: none;
+}
+
+.entry-one-line.expanded .entry-details {
+  display: block;
 }
 
 .entry-cover {
