@@ -230,6 +230,52 @@ button:hover,
   padding: 0.75rem;
 }
 
+.cloud-sync {
+  background: #e9f4f0;
+  border: 1px solid #b8d8cf;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.cloud-sync h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.cloud-hint {
+  margin: 0.35rem 0 0.7rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.cloud-grid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.cloud-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cloud-checkbox input {
+  margin: 0;
+}
+
+.cloud-status {
+  margin: 0.6rem 0 0;
+  font-size: 0.88rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+
+.cloud-idle { background: #edf5f2; color: #2f6656; }
+.cloud-loading { background: #eef3ff; color: #3a5bc7; }
+.cloud-success { background: #eaffea; color: #1a7a35; }
+.cloud-error { background: #fff0ef; color: #b33; }
+
 .url-row {
   display: flex;
   gap: 0.5rem;
