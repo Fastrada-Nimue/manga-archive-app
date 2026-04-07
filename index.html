@@ -20,6 +20,17 @@
         <form id="entry-form" class="form-grid">
           <input type="hidden" id="entry-id" />
 
+          <div class="url-import full-width">
+            <label>
+              Quick-fill from URL
+              <div class="url-row">
+                <input id="url-import" type="url" placeholder="Paste a MangaDex, AniList, or MyAnimeList URL…" autocomplete="off" />
+                <button type="button" id="fetch-url">Fetch</button>
+              </div>
+            </label>
+            <p id="fetch-status" class="fetch-status hidden"></p>
+          </div>
+
           <label>
             Title
             <input id="title" name="title" type="text" required maxlength="120" />
