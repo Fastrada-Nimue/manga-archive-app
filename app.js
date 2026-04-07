@@ -14,6 +14,7 @@ const elements = {
   tags: document.getElementById("tags"),
   volume: document.getElementById("volume"),
   chapter: document.getElementById("chapter"),
+  latestChapter: document.getElementById("latest-chapter"),
   status: document.getElementById("status"),
   rating: document.getElementById("rating"),
   notes: document.getElementById("notes"),
@@ -107,6 +108,7 @@ function onSave(event) {
     tags: parseList(elements.tags.value),
     volume: normalizeNumber(elements.volume.value),
     chapter: normalizeNumber(elements.chapter.value),
+    latestChapter: normalizeNumber(elements.latestChapter.value),
     status: elements.status.value,
     rating: normalizeNumber(elements.rating.value),
     notes: elements.notes.value.trim(),
@@ -174,7 +176,7 @@ function render() {
           <div>
             <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
             <p class="entry-meta">
-              ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+              ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
             </p>
             <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
             <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
@@ -215,6 +217,7 @@ function editEntry(id) {
   elements.tags.value = (entry.tags || []).join(", ");
   elements.volume.value = entry.volume ?? "";
   elements.chapter.value = entry.chapter ?? "";
+  elements.latestChapter.value = entry.latestChapter ?? "";
   elements.status.value = entry.status || "reading";
   elements.rating.value = entry.rating ?? "";
   elements.notes.value = entry.notes || "";
@@ -342,6 +345,7 @@ function normalizeEntry(raw) {
     tags: normalizeStringArray(raw.tags),
     volume: normalizeNumber(raw.volume),
     chapter: normalizeNumber(raw.chapter),
+    latestChapter: normalizeNumber(raw.latestChapter),
     status: String(raw.status || "planned"),
     rating: normalizeNumber(raw.rating),
     notes: String(raw.notes || ""),
@@ -408,7 +412,7 @@ async function onFetchUrl() {
     if (mdMatch)       meta = await fetchMangaDex(mdMatch[1]);
     else if (alMatch)  meta = await fetchAniList(Number(alMatch[1]));
     else if (malMatch) meta = await fetchJikan(Number(malMatch[1]));
-    else if (mhMatch)  meta = fetchManhuafast(parsed);
+    else if (mhMatch)  meta = await fetchManhuafast(parsed);
     else {
       setFetchStatus("error", "Could not find a recognised ID in that URL.");
       return;
@@ -463,6 +467,7 @@ async function fetchAniList(id) {
         title { romaji english }
         status
         genres
+        chapters
       }
     }
   `;
@@ -490,6 +495,7 @@ async function fetchAniList(id) {
     genres: (media.genres || []).map((g) => g.toLowerCase()),
     tags: [],
     status: statusMap[media.status] ?? "planned",
+    latestChapter: normalizeNumber(media.chapters),
   };
 }
 
@@ -520,6 +526,7 @@ async function fetchJikan(id) {
     genres,
     tags,
     status,
+    latestChapter: normalizeNumber(data.chapters),
   };
 }
 
@@ -534,12 +541,19 @@ function fetchManhuafast(parsedUrl) {
   const slug = segments[segments.length - 1] || "";
   const title = slugToTitle(slug) || "Unknown title";
 
+  return fetchManhuafastEnriched(title);
+}
+
+async function fetchManhuafastEnriched(title) {
+  const enriched = await fetchAniListBySearch(title);
+
   return {
-    source: "ManhuaFast",
-    title,
-    genres: [],
-    tags: ["manhuafast"],
-    status: "planned",
+    source: enriched ? "ManhuaFast + AniList" : "ManhuaFast",
+    title: enriched?.title || title,
+    genres: enriched?.genres || [],
+    tags: ["manhuafast", ...(enriched?.tags || [])],
+    status: enriched?.status || "planned",
+    latestChapter: enriched?.latestChapter ?? null,
   };
 }
 
@@ -550,6 +564,50 @@ function slugToTitle(slug) {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+async function fetchAniListBySearch(title) {
+  const query = `
+    query ($search: String) {
+      Media(search: $search, type: MANGA) {
+        title { romaji english }
+        status
+        genres
+        chapters
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ query, variables: { search: title } }),
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const media = json.data?.Media;
+    if (!media) return null;
+
+    const statusMap = {
+      RELEASING: "reading",
+      FINISHED: "completed",
+      HIATUS: "on-hold",
+      CANCELLED: "on-hold",
+      NOT_YET_RELEASED: "planned",
+    };
+
+    return {
+      title: media.title?.english || media.title?.romaji || title,
+      genres: (media.genres || []).map((item) => item.toLowerCase()),
+      tags: [],
+      status: statusMap[media.status] ?? "planned",
+      latestChapter: normalizeNumber(media.chapters),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function fillFormFromMeta(meta) {
@@ -564,6 +622,9 @@ function fillFormFromMeta(meta) {
   }
   if (meta.status) {
     elements.status.value = meta.status;
+  }
+  if (meta.latestChapter != null) {
+    elements.latestChapter.value = meta.latestChapter;
   }
 }
 
@@ -580,6 +641,12 @@ function setFetchStatus(type, message) {
 
 function createId() {
   return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function chaptersLeft(entry) {
+  if (entry.latestChapter == null) return "?";
+  if (entry.chapter == null) return String(entry.latestChapter);
+  return String(Math.max(0, entry.latestChapter - entry.chapter));
 }
 
 function normalizeNumber(value) {
