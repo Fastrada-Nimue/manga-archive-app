@@ -372,6 +372,7 @@ const URL_PATTERNS = {
   mangadex: /mangadex\.org\/title\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
   anilist:  /anilist\.co\/manga\/(\d+)/i,
   mal:      /myanimelist\.net\/manga\/(\d+)/i,
+  manhuafast: /manhuafast\.net/i,
 };
 
 async function onFetchUrl() {
@@ -388,9 +389,10 @@ async function onFetchUrl() {
 
   // Only allow known hosts — never fetch the user-supplied URL directly.
   const host = parsed.hostname.replace(/^www\./, "");
+  const isManhuafast = host.endsWith("manhuafast.net");
   const allowed = ["mangadex.org", "anilist.co", "myanimelist.net"];
-  if (!allowed.includes(host)) {
-    setFetchStatus("error", "Unsupported site. Paste a MangaDex, AniList, or MyAnimeList URL.");
+  if (!allowed.includes(host) && !isManhuafast) {
+    setFetchStatus("error", "Unsupported site. Paste a MangaDex, AniList, MyAnimeList, or ManhuaFast URL.");
     return;
   }
 
@@ -401,10 +403,12 @@ async function onFetchUrl() {
     const mdMatch = URL_PATTERNS.mangadex.exec(raw);
     const alMatch = URL_PATTERNS.anilist.exec(raw);
     const malMatch = URL_PATTERNS.mal.exec(raw);
+    const mhMatch = URL_PATTERNS.manhuafast.exec(raw);
 
     if (mdMatch)       meta = await fetchMangaDex(mdMatch[1]);
     else if (alMatch)  meta = await fetchAniList(Number(alMatch[1]));
     else if (malMatch) meta = await fetchJikan(Number(malMatch[1]));
+    else if (mhMatch)  meta = fetchManhuafast(parsed);
     else {
       setFetchStatus("error", "Could not find a recognised ID in that URL.");
       return;
@@ -517,6 +521,35 @@ async function fetchJikan(id) {
     tags,
     status,
   };
+}
+
+function fetchManhuafast(parsedUrl) {
+  const skip = new Set(["manga", "manhua", "manhwa", "comic", "series", "read", "chapter"]);
+  const segments = parsedUrl.pathname
+    .split("/")
+    .map((part) => decodeURIComponent(part).trim().toLowerCase())
+    .filter(Boolean)
+    .filter((part) => !skip.has(part));
+
+  const slug = segments[segments.length - 1] || "";
+  const title = slugToTitle(slug) || "Unknown title";
+
+  return {
+    source: "ManhuaFast",
+    title,
+    genres: [],
+    tags: ["manhuafast"],
+    status: "planned",
+  };
+}
+
+function slugToTitle(slug) {
+  if (!slug) return "";
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function fillFormFromMeta(meta) {
