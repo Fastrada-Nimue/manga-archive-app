@@ -1,4 +1,4 @@
-const CACHE_NAME = "manga-archive-v2";
+const CACHE_NAME = "manga-archive-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -50,23 +50,29 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For other files, use cache first then network update.
+  // For other files, use stale-while-revalidate so cached assets are served
+  // immediately but the cache is always refreshed in the background.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(event.request);
 
-      return fetch(event.request)
+      // Always kick off a background fetch to keep assets fresh.
+      const networkFetch = fetch(event.request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          if (response.ok) cache.put(event.request, response.clone());
           return response;
         })
-        .catch(() => {
-          if (isSameOrigin && event.request.destination === "image") {
-            return caches.match("./assets/icon-192.png");
-          }
-          return new Response("", { status: 504, statusText: "Gateway Timeout" });
-        });
+        .catch(() => null);
+
+      if (cached) return cached; // serve stale immediately; cache updates in background
+
+      const fresh = await networkFetch;
+      if (fresh) return fresh;
+
+      if (isSameOrigin && event.request.destination === "image") {
+        return caches.match("./assets/icon-192.png");
+      }
+      return new Response("", { status: 504, statusText: "Gateway Timeout" });
     }),
   );
 });
