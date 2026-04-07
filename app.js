@@ -41,6 +41,31 @@ elements.urlImport.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); onFetchUrl(); }
 });
 elements.search.addEventListener("input", render);
+
+// ── PWA install banner ────────────────────────────────────────────────────────
+let _installPromptEvent = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _installPromptEvent = e;
+  document.getElementById("install-banner")?.classList.remove("hidden");
+});
+
+document.getElementById("install-accept")?.addEventListener("click", async () => {
+  if (!_installPromptEvent) return;
+  _installPromptEvent.prompt();
+  await _installPromptEvent.userChoice;
+  _installPromptEvent = null;
+  document.getElementById("install-banner")?.classList.add("hidden");
+});
+
+document.getElementById("install-dismiss")?.addEventListener("click", () => {
+  document.getElementById("install-banner")?.classList.add("hidden");
+});
+
+window.addEventListener("appinstalled", () => {
+  document.getElementById("install-banner")?.classList.add("hidden");
+});
 elements.statusFilter.addEventListener("change", render);
 elements.genreFilter.addEventListener("input", render);
 elements.tagFilter.addEventListener("input", render);
