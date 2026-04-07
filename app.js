@@ -364,7 +364,15 @@ function normalizeStringArray(value) {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      // When a new SW version activates (e.g. after a deploy), reload the page
+      // automatically so users always get the latest app.js without clearing cache.
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        window.location.reload();
+      });
+      // Immediately check for a new version in case one is already waiting.
+      reg.update();
+    }).catch(() => {
       // Silent fail for environments where SW is blocked.
     });
   });
