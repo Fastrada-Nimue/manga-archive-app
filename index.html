@@ -4,11 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f6c5b" />
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MangaArchive" />
+    <link rel="apple-touch-icon" href="./assets/icon-180.png" />
+
     <title>Manga Archive</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="install-banner" class="install-banner hidden">
+      <span>Install Manga Archive as an app for offline use!</span>
+      <div class="install-banner-actions">
+        <button id="install-accept" type="button">Install</button>
+        <button id="install-dismiss" type="button" class="secondary">Not now</button>
+      </div>
+    </div>
+
     <main class="app-shell">
       <header class="topbar">
         <h1>Manga Archive</h1>
