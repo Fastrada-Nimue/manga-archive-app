@@ -1,0 +1,16 @@
+{
+  "name": "Manga Archive",
+  "short_name": "MangaArchive",
+  "description": "Offline-capable local manga archive and reading tracker.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#0f6c5b",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

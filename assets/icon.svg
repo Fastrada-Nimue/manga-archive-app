@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Manga Archive icon">
+  <rect width="512" height="512" rx="96" fill="#0f6c5b" />
+  <rect x="104" y="86" width="304" height="340" rx="20" fill="#fffdf8" />
+  <rect x="136" y="132" width="82" height="248" rx="10" fill="#d8d2c7" />
+  <rect x="236" y="132" width="140" height="24" rx="8" fill="#cabfae" />
+  <rect x="236" y="172" width="140" height="24" rx="8" fill="#cabfae" />
+  <rect x="236" y="212" width="120" height="24" rx="8" fill="#cabfae" />
+  <circle cx="332" cy="324" r="38" fill="#0f6c5b" />
+  <path d="M312 324h40M332 304v40" stroke="#fffdf8" stroke-width="10" stroke-linecap="round" />
+</svg>

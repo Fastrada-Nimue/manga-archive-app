@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f6c5b" />
+    <title>Manga Archive</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <h1>Manga Archive</h1>
+        <p>Track volumes, chapters, ratings, and reading status locally.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Add or Update Entry</h2>
+        <form id="entry-form" class="form-grid">
+          <input type="hidden" id="entry-id" />
+
+          <label>
+            Title
+            <input id="title" name="title" type="text" required maxlength="120" />
+          </label>
+
+          <label>
+            Series
+            <input id="series" name="series" type="text" maxlength="120" />
+          </label>
+
+          <label>
+            Genres (comma-separated)
+            <input id="genres" name="genres" type="text" maxlength="240" placeholder="Action, Fantasy" />
+          </label>
+
+          <label>
+            Tags (comma-separated)
+            <input id="tags" name="tags" type="text" maxlength="240" placeholder="Favorite, Hardcover" />
+          </label>
+
+          <label>
+            Volume
+            <input id="volume" name="volume" type="number" min="0" step="1" />
+          </label>
+
+          <label>
+            Chapter
+            <input id="chapter" name="chapter" type="number" min="0" step="1" />
+          </label>
+
+          <label>
+            Status
+            <select id="status" name="status">
+              <option value="reading">Reading</option>
+              <option value="completed">Completed</option>
+              <option value="planned">Planned</option>
+              <option value="on-hold">On Hold</option>
+            </select>
+          </label>
+
+          <label>
+            Rating (0-10)
+            <input id="rating" name="rating" type="number" min="0" max="10" step="0.5" />
+          </label>
+
+          <label class="full-width">
+            Notes
+            <textarea id="notes" name="notes" rows="3" maxlength="1000"></textarea>
+          </label>
+
+          <label class="full-width">
+            Cover Image
+            <input id="cover-file" name="cover-file" type="file" accept="image/*" />
+          </label>
+          <div class="full-width cover-preview-wrap">
+            <img id="cover-preview" alt="Cover preview" class="cover-preview hidden" />
+            <button type="button" id="remove-cover" class="secondary hidden">Remove Cover</button>
+          </div>
+
+          <div class="actions full-width">
+            <button type="submit">Save Entry</button>
+            <button type="button" id="reset-form" class="secondary">Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Library</h2>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search title or series..." />
+          <select id="status-filter">
+            <option value="all">All statuses</option>
+            <option value="reading">Reading</option>
+            <option value="completed">Completed</option>
+            <option value="planned">Planned</option>
+            <option value="on-hold">On Hold</option>
+          </select>
+          <input id="genre-filter" type="search" placeholder="Filter by genre..." />
+          <input id="tag-filter" type="search" placeholder="Filter by tag..." />
+          <select id="sort-by">
+            <option value="updated-desc">Recently updated</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="rating-desc">Rating high-low</option>
+            <option value="volume-desc">Volume high-low</option>
+            <option value="chapter-desc">Chapter high-low</option>
+          </select>
+          <button id="export-json" class="secondary" type="button">Export JSON</button>
+          <label class="import-btn" for="import-json">Import JSON</label>
+          <input id="import-json" type="file" accept="application/json" />
+        </div>
+        <div id="entries" class="entries"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
