@@ -165,10 +165,33 @@ button:hover,
   background: #fff;
 }
 
+.entry-compact {
+  display: grid;
+  grid-template-columns: 34px 56px 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.entry-index {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #e9f4f0;
+  color: #1f5d4f;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b8d8cf;
+}
+
 .entry-head {
   display: flex;
   gap: 0.75rem;
   align-items: flex-start;
+}
+
+.entry-main {
+  min-width: 0;
 }
 
 .entry-cover {
@@ -179,6 +202,11 @@ button:hover,
   object-fit: cover;
   background: #f3efe8;
   flex: 0 0 auto;
+}
+
+.entry-cover-small {
+  width: 56px;
+  height: 78px;
 }
 
 .entry-cover.placeholder {
@@ -211,9 +239,24 @@ button:hover,
   white-space: pre-wrap;
 }
 
+.entry-notes.compact {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: #57524a;
+  overflow: hidden;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .entry-actions {
   display: flex;
   gap: 0.45rem;
+}
+
+.entry-actions-compact {
+  flex-direction: column;
 }
 
 .empty {
@@ -318,5 +361,21 @@ button:hover,
 @media (max-width: 680px) {
   .entry-head {
     flex-direction: column;
+  }
+
+  .entry-compact {
+    grid-template-columns: 30px 46px 1fr;
+  }
+
+  .entry-cover-small {
+    width: 46px;
+    height: 64px;
+  }
+
+  .entry-actions-compact {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
   }
 }
