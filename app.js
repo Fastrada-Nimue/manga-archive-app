@@ -418,6 +418,11 @@ async function onFetchUrl() {
       return;
     }
 
+    const chapterFromUrl = extractChapterFromUrl(parsed);
+    if (chapterFromUrl != null && meta.chapter == null) {
+      meta.chapter = chapterFromUrl;
+    }
+
     fillFormFromMeta(meta);
     setFetchStatus("success", `Auto-filled from ${meta.source}!`);
     setTimeout(() => setFetchStatus("hidden"), 3500);
@@ -626,6 +631,31 @@ function fillFormFromMeta(meta) {
   if (meta.latestChapter != null) {
     elements.latestChapter.value = meta.latestChapter;
   }
+  if (meta.chapter != null) {
+    elements.chapter.value = meta.chapter;
+  }
+}
+
+function extractChapterFromUrl(parsedUrl) {
+  const queryChapter = parsedUrl.searchParams.get("chapter") || parsedUrl.searchParams.get("ch");
+  const parsedQuery = normalizeNumber(queryChapter);
+  if (parsedQuery != null) return parsedQuery;
+
+  const path = decodeURIComponent(parsedUrl.pathname.toLowerCase());
+  const patterns = [
+    /chapter[-_\/]?(\d+(?:\.\d+)?)/,
+    /(?:^|[\/_-])ch(?:apter)?[-_ ]?(\d+(?:\.\d+)?)(?:$|[\/_-])/, 
+  ];
+
+  for (const regex of patterns) {
+    const match = path.match(regex);
+    if (match?.[1]) {
+      const value = normalizeNumber(match[1]);
+      if (value != null) return value;
+    }
+  }
+
+  return null;
 }
 
 function setFetchStatus(type, message) {
