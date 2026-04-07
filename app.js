@@ -1,12 +1,17 @@
 const STORAGE_KEY = "mangaArchive.entries.v1";
 const CLOUD_STORAGE_KEY = "mangaArchive.cloud.v1";
 const CLOUD_FILE_NAME = "manga-archive-data.json";
+const UI_STORAGE_KEY = "mangaArchive.ui.v1";
+
+const uiSettings = loadUiSettings();
 
 const state = {
   entries: loadEntries(),
   coverDataUrl: "",
   cloud: loadCloudSettings(),
   cloudBusy: false,
+  compactMode: uiSettings.compactMode,
+  expandedEntryIds: new Set(),
 };
 
 const elements = {
@@ -42,6 +47,7 @@ const elements = {
   genreFilter: document.getElementById("genre-filter"),
   tagFilter: document.getElementById("tag-filter"),
   sortBy: document.getElementById("sort-by"),
+  compactMode: document.getElementById("compact-mode"),
   entries: document.getElementById("entries"),
   exportButton: document.getElementById("export-json"),
   importInput: document.getElementById("import-json"),
@@ -83,6 +89,7 @@ elements.statusFilter.addEventListener("change", render);
 elements.genreFilter.addEventListener("input", render);
 elements.tagFilter.addEventListener("input", render);
 elements.sortBy.addEventListener("change", render);
+elements.compactMode.addEventListener("change", onToggleCompactMode);
 elements.exportButton.addEventListener("click", exportJson);
 elements.importInput.addEventListener("change", importJson);
 elements.coverFile.addEventListener("change", onCoverSelected);
@@ -94,6 +101,8 @@ elements.cloudPull.addEventListener("click", onCloudPull);
 render();
 initCloudUi();
 registerServiceWorker();
+
+elements.compactMode.checked = state.compactMode;
 
 function loadEntries() {
   try {
@@ -186,7 +195,7 @@ function render() {
   elements.entries.innerHTML = filtered
     .map(
       (entry, index) => `
-      <article class="entry entry-compact">
+      <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}">
         <div class="entry-index">${index + 1}</div>
         ${
           entry.coverDataUrl
@@ -195,14 +204,18 @@ function render() {
         }
         <div class="entry-main">
           <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
-          ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
-          <p class="entry-meta">
+          <p class="entry-summary-line">
             ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
           </p>
-          <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
-          ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
+          <div class="entry-details">
+            ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
+            <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
+            <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
+            ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
+          </div>
         </div>
         <div class="entry-actions entry-actions-compact">
+          <button type="button" class="secondary" data-action="toggle" data-id="${entry.id}">${state.expandedEntryIds.has(entry.id) ? "Collapse" : "Expand"}</button>
           <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
           <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh</button>
           <button type="button" class="secondary" data-action="delete" data-id="${entry.id}">Delete</button>
@@ -216,11 +229,26 @@ function render() {
     button.addEventListener("click", () => {
       const action = button.getAttribute("data-action");
       const id = button.getAttribute("data-id");
+      if (action === "toggle") toggleExpanded(id);
       if (action === "edit") editEntry(id);
       if (action === "refresh") void refreshEntry(id);
       if (action === "delete") deleteEntry(id);
     });
   });
+}
+
+function toggleExpanded(id) {
+  if (!state.compactMode) return;
+  if (state.expandedEntryIds.has(id)) state.expandedEntryIds.delete(id);
+  else state.expandedEntryIds.add(id);
+  render();
+}
+
+function onToggleCompactMode() {
+  state.compactMode = elements.compactMode.checked;
+  state.expandedEntryIds.clear();
+  saveUiSettings();
+  render();
 }
 
 function editEntry(id) {
@@ -428,6 +456,21 @@ function loadCloudSettings() {
   } catch {
     return { token: "", gistId: "", autoSync: false };
   }
+}
+
+function loadUiSettings() {
+  try {
+    const raw = localStorage.getItem(UI_STORAGE_KEY);
+    if (!raw) return { compactMode: true };
+    const parsed = JSON.parse(raw);
+    return { compactMode: parsed.compactMode !== false };
+  } catch {
+    return { compactMode: true };
+  }
+}
+
+function saveUiSettings() {
+  localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ compactMode: state.compactMode }));
 }
 
 function saveCloudSettings() {
