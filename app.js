@@ -20,6 +20,9 @@ const elements = {
   coverFile: document.getElementById("cover-file"),
   coverPreview: document.getElementById("cover-preview"),
   removeCover: document.getElementById("remove-cover"),
+  urlImport: document.getElementById("url-import"),
+  fetchUrl: document.getElementById("fetch-url"),
+  fetchStatus: document.getElementById("fetch-status"),
   resetButton: document.getElementById("reset-form"),
   search: document.getElementById("search"),
   statusFilter: document.getElementById("status-filter"),
@@ -33,6 +36,10 @@ const elements = {
 
 elements.form.addEventListener("submit", onSave);
 elements.resetButton.addEventListener("click", clearForm);
+elements.fetchUrl.addEventListener("click", onFetchUrl);
+elements.urlImport.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); onFetchUrl(); }
+});
 elements.search.addEventListener("input", render);
 elements.statusFilter.addEventListener("change", render);
 elements.genreFilter.addEventListener("input", render);
@@ -332,6 +339,185 @@ function registerServiceWorker() {
       // Silent fail for environments where SW is blocked.
     });
   });
+}
+
+// ── URL auto-categorisation ───────────────────────────────────────────────────
+
+const URL_PATTERNS = {
+  mangadex: /mangadex\.org\/title\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+  anilist:  /anilist\.co\/manga\/(\d+)/i,
+  mal:      /myanimelist\.net\/manga\/(\d+)/i,
+};
+
+async function onFetchUrl() {
+  const raw = elements.urlImport.value.trim();
+  if (!raw) return;
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    setFetchStatus("error", "Not a valid URL.");
+    return;
+  }
+
+  // Only allow known hosts — never fetch the user-supplied URL directly.
+  const host = parsed.hostname.replace(/^www\./, "");
+  const allowed = ["mangadex.org", "anilist.co", "myanimelist.net"];
+  if (!allowed.includes(host)) {
+    setFetchStatus("error", "Unsupported site. Paste a MangaDex, AniList, or MyAnimeList URL.");
+    return;
+  }
+
+  setFetchStatus("loading", "Fetching details…");
+
+  try {
+    let meta;
+    const mdMatch = URL_PATTERNS.mangadex.exec(raw);
+    const alMatch = URL_PATTERNS.anilist.exec(raw);
+    const malMatch = URL_PATTERNS.mal.exec(raw);
+
+    if (mdMatch)       meta = await fetchMangaDex(mdMatch[1]);
+    else if (alMatch)  meta = await fetchAniList(Number(alMatch[1]));
+    else if (malMatch) meta = await fetchJikan(Number(malMatch[1]));
+    else {
+      setFetchStatus("error", "Could not find a recognised ID in that URL.");
+      return;
+    }
+
+    fillFormFromMeta(meta);
+    setFetchStatus("success", `Auto-filled from ${meta.source}!`);
+    setTimeout(() => setFetchStatus("hidden"), 3500);
+  } catch {
+    setFetchStatus("error", "Fetch failed. The API may be temporarily unavailable — try again.");
+  }
+}
+
+async function fetchMangaDex(uuid) {
+  const res = await fetch(
+    `https://api.mangadex.org/manga/${encodeURIComponent(uuid)}?includes[]=tag`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (!res.ok) throw new Error(`MangaDex ${res.status}`);
+  const json = await res.json();
+  if (json.result !== "ok") throw new Error("MangaDex: no result");
+
+  const attr = json.data.attributes;
+  const title =
+    attr.title?.en ||
+    Object.values(attr.title || {})[0] ||
+    "";
+  const genres = (attr.tags || [])
+    .filter((t) => t.attributes?.group === "genre")
+    .map((t) => t.attributes?.name?.en || "")
+    .filter(Boolean)
+    .map((g) => g.toLowerCase());
+  const tags = (attr.tags || [])
+    .filter((t) => t.attributes?.group === "theme")
+    .map((t) => t.attributes?.name?.en || "")
+    .filter(Boolean)
+    .map((t) => t.toLowerCase());
+
+  return {
+    source: "MangaDex",
+    title,
+    genres,
+    tags,
+    status: { ongoing: "reading", completed: "completed", hiatus: "on-hold", cancelled: "on-hold" }[attr.status] ?? "planned",
+  };
+}
+
+async function fetchAniList(id) {
+  const query = `
+    query ($id: Int) {
+      Media(id: $id, type: MANGA) {
+        title { romaji english }
+        status
+        genres
+      }
+    }
+  `;
+  const res = await fetch("https://graphql.anilist.co", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ query, variables: { id } }),
+  });
+  if (!res.ok) throw new Error(`AniList ${res.status}`);
+  const json = await res.json();
+  const media = json.data?.Media;
+  if (!media) throw new Error("AniList: no data");
+
+  const statusMap = {
+    RELEASING: "reading",
+    FINISHED: "completed",
+    HIATUS: "on-hold",
+    CANCELLED: "on-hold",
+    NOT_YET_RELEASED: "planned",
+  };
+
+  return {
+    source: "AniList",
+    title: media.title?.english || media.title?.romaji || "",
+    genres: (media.genres || []).map((g) => g.toLowerCase()),
+    tags: [],
+    status: statusMap[media.status] ?? "planned",
+  };
+}
+
+async function fetchJikan(id) {
+  const res = await fetch(`https://api.jikan.moe/v4/manga/${id}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Jikan ${res.status}`);
+  const json = await res.json();
+  const data = json.data;
+  if (!data) throw new Error("Jikan: no data");
+
+  const genres = [
+    ...(data.genres || []),
+    ...(data.explicit_genres || []),
+  ].map((g) => g.name.toLowerCase());
+  const tags = (data.themes || []).map((t) => t.name.toLowerCase());
+
+  let status = "planned";
+  const s = data.status || "";
+  if (s.includes("Publishing")) status = "reading";
+  else if (s.includes("Finished")) status = "completed";
+  else if (s.includes("Hiatus") || s.includes("Discontinued")) status = "on-hold";
+
+  return {
+    source: "MyAnimeList",
+    title: data.title_english || data.title || "",
+    genres,
+    tags,
+    status,
+  };
+}
+
+function fillFormFromMeta(meta) {
+  if (meta.title && !elements.title.value.trim()) {
+    elements.title.value = meta.title;
+  }
+  if (meta.genres?.length) {
+    elements.genres.value = meta.genres.join(", ");
+  }
+  if (meta.tags?.length) {
+    elements.tags.value = meta.tags.join(", ");
+  }
+  if (meta.status) {
+    elements.status.value = meta.status;
+  }
+}
+
+function setFetchStatus(type, message) {
+  const el = elements.fetchStatus;
+  el.className = "fetch-status";
+  if (type === "hidden") {
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.add(`fetch-${type}`);
+  el.textContent = message || "";
 }
 
 function createId() {
