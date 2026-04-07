@@ -185,32 +185,26 @@ function render() {
 
   elements.entries.innerHTML = filtered
     .map(
-      (entry) => `
-      <article class="entry">
-        <div class="entry-head">
-          ${
-            entry.coverDataUrl
-              ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover" alt="Cover for ${escapeHtml(entry.title)}" />`
-              : `<div class="entry-cover placeholder">No Cover</div>`
-          }
-          <div>
-            <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
-            ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
-            <p class="entry-meta">
-              ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
-            </p>
-            <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
-            <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
-          </div>
-        </div>
+      (entry, index) => `
+      <article class="entry entry-compact">
+        <div class="entry-index">${index + 1}</div>
         ${
-          entry.notes
-            ? `<p class="entry-notes">${escapeHtml(entry.notes)}</p>`
-            : ""
+          entry.coverDataUrl
+            ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
+            : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`
         }
-        <div class="entry-actions">
+        <div class="entry-main">
+          <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
+          ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
+          <p class="entry-meta">
+            ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+          </p>
+          <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
+          ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
+        </div>
+        <div class="entry-actions entry-actions-compact">
           <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
-          <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh Latest</button>
+          <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh</button>
           <button type="button" class="secondary" data-action="delete" data-id="${entry.id}">Delete</button>
         </div>
       </article>
