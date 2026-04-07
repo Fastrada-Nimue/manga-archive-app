@@ -1,8 +1,12 @@
 const STORAGE_KEY = "mangaArchive.entries.v1";
+const CLOUD_STORAGE_KEY = "mangaArchive.cloud.v1";
+const CLOUD_FILE_NAME = "manga-archive-data.json";
 
 const state = {
   entries: loadEntries(),
   coverDataUrl: "",
+  cloud: loadCloudSettings(),
+  cloudBusy: false,
 };
 
 const elements = {
@@ -25,6 +29,13 @@ const elements = {
   urlImport: document.getElementById("url-import"),
   fetchUrl: document.getElementById("fetch-url"),
   fetchStatus: document.getElementById("fetch-status"),
+  cloudToken: document.getElementById("cloud-token"),
+  cloudGistId: document.getElementById("cloud-gist-id"),
+  cloudAutoSync: document.getElementById("cloud-auto-sync"),
+  cloudSave: document.getElementById("cloud-save"),
+  cloudPush: document.getElementById("cloud-push"),
+  cloudPull: document.getElementById("cloud-pull"),
+  cloudStatus: document.getElementById("cloud-status"),
   resetButton: document.getElementById("reset-form"),
   search: document.getElementById("search"),
   statusFilter: document.getElementById("status-filter"),
@@ -76,8 +87,12 @@ elements.exportButton.addEventListener("click", exportJson);
 elements.importInput.addEventListener("change", importJson);
 elements.coverFile.addEventListener("change", onCoverSelected);
 elements.removeCover.addEventListener("click", removeCover);
+elements.cloudSave.addEventListener("click", onCloudSaveSettings);
+elements.cloudPush.addEventListener("click", onCloudPush);
+elements.cloudPull.addEventListener("click", onCloudPull);
 
 render();
+initCloudUi();
 registerServiceWorker();
 
 function loadEntries() {
@@ -128,6 +143,7 @@ function onSave(event) {
   }
 
   saveEntries();
+  void maybeAutoCloudPush();
   clearForm();
   render();
 }
@@ -235,6 +251,7 @@ function editEntry(id) {
 function deleteEntry(id) {
   state.entries = state.entries.filter((item) => item.id !== id);
   saveEntries();
+  void maybeAutoCloudPush();
   render();
 }
 
@@ -268,6 +285,7 @@ function importJson(event) {
         .filter((item) => item && typeof item === "object")
         .map((item) => normalizeEntry(item));
       saveEntries();
+      void maybeAutoCloudPush();
       render();
       clearForm();
     } catch {
@@ -365,6 +383,237 @@ function normalizeStringArray(value) {
   return value
     .map((item) => String(item).trim().toLowerCase())
     .filter(Boolean);
+}
+
+function loadCloudSettings() {
+  try {
+    const raw = localStorage.getItem(CLOUD_STORAGE_KEY);
+    if (!raw) return { token: "", gistId: "", autoSync: false };
+    const parsed = JSON.parse(raw);
+    return {
+      token: String(parsed.token || ""),
+      gistId: String(parsed.gistId || ""),
+      autoSync: Boolean(parsed.autoSync),
+    };
+  } catch {
+    return { token: "", gistId: "", autoSync: false };
+  }
+}
+
+function saveCloudSettings() {
+  localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(state.cloud));
+}
+
+function initCloudUi() {
+  elements.cloudToken.value = state.cloud.token;
+  elements.cloudGistId.value = state.cloud.gistId;
+  elements.cloudAutoSync.checked = state.cloud.autoSync;
+
+  if (state.cloud.token && state.cloud.gistId) {
+    setCloudStatus("idle", `Connected to gist ${state.cloud.gistId.slice(0, 8)}...`);
+  } else {
+    setCloudStatus("idle", "Cloud sync is not configured.");
+  }
+}
+
+function setCloudStatus(type, message) {
+  const el = elements.cloudStatus;
+  el.className = "cloud-status";
+  el.classList.add(`cloud-${type}`);
+  el.textContent = message || "";
+}
+
+function withCloudLock(action) {
+  if (state.cloudBusy) {
+    setCloudStatus("loading", "Cloud sync already running...");
+    return;
+  }
+
+  state.cloudBusy = true;
+  elements.cloudSave.disabled = true;
+  elements.cloudPush.disabled = true;
+  elements.cloudPull.disabled = true;
+
+  Promise.resolve(action())
+    .catch((error) => {
+      setCloudStatus("error", `Cloud sync failed: ${error.message}`);
+    })
+    .finally(() => {
+      state.cloudBusy = false;
+      elements.cloudSave.disabled = false;
+      elements.cloudPush.disabled = false;
+      elements.cloudPull.disabled = false;
+    });
+}
+
+function readCloudFormSettings() {
+  return {
+    token: elements.cloudToken.value.trim(),
+    gistId: elements.cloudGistId.value.trim(),
+    autoSync: elements.cloudAutoSync.checked,
+  };
+}
+
+async function onCloudSaveSettings() {
+  withCloudLock(async () => {
+    const next = readCloudFormSettings();
+    if (!next.token) {
+      state.cloud = { token: "", gistId: "", autoSync: next.autoSync };
+      saveCloudSettings();
+      setCloudStatus("idle", "Cloud settings cleared.");
+      return;
+    }
+
+    setCloudStatus("loading", "Connecting to GitHub...");
+    const gistId = await ensureCloudGist(next.token, next.gistId);
+    state.cloud = { token: next.token, gistId, autoSync: next.autoSync };
+    saveCloudSettings();
+    elements.cloudGistId.value = gistId;
+    setCloudStatus("success", "Cloud connected. You can now push/pull your library.");
+  });
+}
+
+async function onCloudPush() {
+  withCloudLock(async () => {
+    try {
+      await pushEntriesToCloud();
+      setCloudStatus("success", `Uploaded ${state.entries.length} entries to cloud.`);
+    } catch (error) {
+      setCloudStatus("error", `Push failed: ${error.message}`);
+    }
+  });
+}
+
+async function onCloudPull() {
+  withCloudLock(async () => {
+    try {
+      const cloudEntries = await pullEntriesFromCloud();
+      state.entries = cloudEntries;
+      saveEntries();
+      render();
+      clearForm();
+      setCloudStatus("success", `Downloaded ${state.entries.length} entries from cloud.`);
+    } catch (error) {
+      setCloudStatus("error", `Pull failed: ${error.message}`);
+    }
+  });
+}
+
+async function maybeAutoCloudPush() {
+  if (!state.cloud.autoSync || !state.cloud.token || !state.cloud.gistId) return;
+  if (state.cloudBusy) return;
+
+  try {
+    await pushEntriesToCloud();
+    setCloudStatus("success", `Auto-synced ${state.entries.length} entries.`);
+  } catch (error) {
+    setCloudStatus("error", `Auto-sync failed: ${error.message}`);
+  }
+}
+
+async function ensureCloudGist(token, gistId) {
+  if (gistId) {
+    await githubApiRequest(`https://api.github.com/gists/${encodeURIComponent(gistId)}`, token, {
+      method: "GET",
+    });
+    return gistId;
+  }
+
+  const payload = {
+    description: "Manga Archive cloud backup",
+    public: false,
+    files: {
+      [CLOUD_FILE_NAME]: {
+        content: JSON.stringify(state.entries, null, 2),
+      },
+    },
+  };
+
+  const created = await githubApiRequest("https://api.github.com/gists", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (!created.id) throw new Error("Could not create gist.");
+  return created.id;
+}
+
+async function pushEntriesToCloud() {
+  if (!state.cloud.token) throw new Error("Missing GitHub token.");
+  const gistId = await ensureCloudGist(state.cloud.token, state.cloud.gistId);
+  if (gistId !== state.cloud.gistId) {
+    state.cloud.gistId = gistId;
+    saveCloudSettings();
+    elements.cloudGistId.value = gistId;
+  }
+
+  const payload = {
+    files: {
+      [CLOUD_FILE_NAME]: {
+        content: JSON.stringify(state.entries, null, 2),
+      },
+    },
+  };
+
+  await githubApiRequest(`https://api.github.com/gists/${encodeURIComponent(gistId)}`, state.cloud.token, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+async function pullEntriesFromCloud() {
+  if (!state.cloud.token || !state.cloud.gistId) {
+    throw new Error("Set token and gist ID first.");
+  }
+
+  const gist = await githubApiRequest(
+    `https://api.github.com/gists/${encodeURIComponent(state.cloud.gistId)}`,
+    state.cloud.token,
+    { method: "GET" },
+  );
+
+  const files = gist.files || {};
+  const file = files[CLOUD_FILE_NAME] || Object.values(files)[0];
+  if (!file) throw new Error("No data file found in gist.");
+
+  let content = file.content || "";
+  if (!content && file.raw_url) {
+    const rawRes = await fetch(file.raw_url, {
+      headers: {
+        Authorization: `Bearer ${state.cloud.token}`,
+        Accept: "application/vnd.github+json",
+      },
+    });
+    if (!rawRes.ok) throw new Error(`Cloud read failed (${rawRes.status}).`);
+    content = await rawRes.text();
+  }
+
+  const parsed = JSON.parse(content || "[]");
+  if (!Array.isArray(parsed)) throw new Error("Cloud data is not an array.");
+  return parsed
+    .filter((item) => item && typeof item === "object")
+    .map((item) => normalizeEntry(item));
+}
+
+async function githubApiRequest(url, token, options) {
+  const response = await fetch(url, {
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: options.body,
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`GitHub API ${response.status}${details ? `: ${details.slice(0, 120)}` : ""}`);
+  }
+
+  if (response.status === 204) return {};
+  return response.json();
 }
 
 function registerServiceWorker() {
