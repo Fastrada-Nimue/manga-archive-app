@@ -190,6 +190,14 @@ button:hover,
 .entry-group-list {
   display: grid;
   gap: 0.45rem;
+  min-height: 48px;
+  border-radius: 8px;
+}
+
+.entry-group-list.drop-active {
+  background: #f3f8f6;
+  outline: 2px dashed #8cb8aa;
+  outline-offset: 2px;
 }
 
 .entry-empty-lane {
@@ -209,6 +217,10 @@ button:hover,
   border-radius: 8px;
   padding: 0.55rem;
   background: #fff;
+}
+
+.entry.dragging {
+  opacity: 0.55;
 }
 
 .entry-compact {
