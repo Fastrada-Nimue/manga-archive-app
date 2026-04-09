@@ -111,9 +111,11 @@ function loadEntries() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
+    const entries = parsed
       .filter((item) => item && typeof item === "object")
       .map((item) => normalizeEntry(item));
+    ensureManualOrder(entries);
+    return entries;
   } catch {
     return [];
   }
@@ -141,6 +143,7 @@ function onSave(event) {
     rating: normalizeNumber(elements.rating.value),
     notes: elements.notes.value.trim(),
     coverDataUrl: state.coverDataUrl || null,
+    manualOrder: null,
     updatedAt: new Date().toISOString(),
   };
 
@@ -148,8 +151,10 @@ function onSave(event) {
 
   const existingIndex = state.entries.findIndex((item) => item.id === entry.id);
   if (existingIndex >= 0) {
+    entry.manualOrder = state.entries[existingIndex].manualOrder;
     state.entries[existingIndex] = entry;
   } else {
+    entry.manualOrder = getNextManualOrderForBucket(statusBucket(entry.status));
     state.entries.unshift(entry);
   }
 
@@ -305,14 +310,23 @@ function statusBucket(status) {
 }
 
 function moveEntryToBucket(id, bucket) {
+  moveEntryToBucketAtPosition(id, bucket, null);
+}
+
+function moveEntryToBucketAtPosition(id, bucket, beforeId) {
   const index = state.entries.findIndex((item) => item.id === id);
   if (index < 0) return;
 
   const entry = { ...state.entries[index] };
+  const sourceBucket = statusBucket(entry.status);
   entry.status = statusForBucket(bucket, entry.status);
   entry.updatedAt = new Date().toISOString();
 
   state.entries[index] = normalizeEntry(entry);
+  normalizeManualOrderForBucket(sourceBucket);
+  placeEntryInBucketOrder(id, bucket, beforeId);
+
+  elements.sortBy.value = "manual";
   saveEntries();
   void maybeAutoCloudPush();
   render();
@@ -353,9 +367,22 @@ function onLaneDrop(event) {
   const lane = event.currentTarget;
   const targetBucket = lane.getAttribute("data-bucket");
   const draggedId = event.dataTransfer.getData("text/plain") || state.draggingEntryId;
+  const targetCard = event.target.closest("article[data-entry-id]");
   lane.classList.remove("drop-active");
   if (!draggedId || !targetBucket) return;
-  moveEntryToBucket(draggedId, targetBucket);
+
+  let beforeId = null;
+  if (targetCard && lane.contains(targetCard)) {
+    beforeId = targetCard.getAttribute("data-entry-id");
+    const rect = targetCard.getBoundingClientRect();
+    const droppingAfter = event.clientY > rect.top + rect.height / 2;
+    if (droppingAfter) {
+      const nextSibling = targetCard.nextElementSibling?.closest("article[data-entry-id]");
+      beforeId = nextSibling ? nextSibling.getAttribute("data-entry-id") : null;
+    }
+  }
+
+  moveEntryToBucketAtPosition(draggedId, targetBucket, beforeId);
 }
 
 function onLaneDragEnter(event) {
@@ -443,6 +470,7 @@ function importJson(event) {
       state.entries = parsed
         .filter((item) => item && typeof item === "object")
         .map((item) => normalizeEntry(item));
+      ensureManualOrder(state.entries);
       saveEntries();
       void maybeAutoCloudPush();
       render();
@@ -502,6 +530,7 @@ function parseList(value) {
 }
 
 function sortEntries(a, b, sortBy) {
+  if (sortBy === "manual") return sortNumberAsc(a.manualOrder, b.manualOrder);
   if (sortBy === "title-asc") return sortText(a.title, b.title);
   if (sortBy === "rating-desc") return sortNumberDesc(a.rating, b.rating);
   if (sortBy === "volume-desc") return sortNumberDesc(a.volume, b.volume);
@@ -512,6 +541,10 @@ function sortEntries(a, b, sortBy) {
 
 function sortNumberDesc(left, right) {
   return (right ?? -1) - (left ?? -1);
+}
+
+function sortNumberAsc(left, right) {
+  return (left ?? Number.MAX_SAFE_INTEGER) - (right ?? Number.MAX_SAFE_INTEGER);
 }
 
 function sortText(left, right) {
@@ -534,8 +567,58 @@ function normalizeEntry(raw) {
     rating: normalizeNumber(raw.rating),
     notes: String(raw.notes || ""),
     coverDataUrl: typeof raw.coverDataUrl === "string" ? raw.coverDataUrl : null,
+    manualOrder: normalizeNumber(raw.manualOrder),
     updatedAt: raw.updatedAt || new Date().toISOString(),
   };
+}
+
+function ensureManualOrder(entries) {
+  const buckets = ["begun", "completed", "potential"];
+  for (const bucket of buckets) {
+    const lane = entries
+      .filter((item) => statusBucket(item.status) === bucket)
+      .sort((a, b) => sortNumberAsc(a.manualOrder, b.manualOrder));
+    lane.forEach((item, i) => {
+      item.manualOrder = i + 1;
+    });
+  }
+}
+
+function getNextManualOrderForBucket(bucket) {
+  const lane = state.entries.filter((item) => statusBucket(item.status) === bucket);
+  const currentMax = lane.reduce((max, item) => Math.max(max, item.manualOrder ?? 0), 0);
+  return currentMax + 1;
+}
+
+function normalizeManualOrderForBucket(bucket) {
+  const lane = state.entries
+    .filter((item) => statusBucket(item.status) === bucket)
+    .sort((a, b) => sortNumberAsc(a.manualOrder, b.manualOrder));
+
+  lane.forEach((item, i) => {
+    item.manualOrder = i + 1;
+  });
+}
+
+function placeEntryInBucketOrder(entryId, bucket, beforeId) {
+  const lane = state.entries
+    .filter((item) => statusBucket(item.status) === bucket)
+    .sort((a, b) => sortNumberAsc(a.manualOrder, b.manualOrder));
+
+  const withoutDragged = lane.filter((item) => item.id !== entryId);
+  const dragged = lane.find((item) => item.id === entryId);
+  if (!dragged) return;
+
+  let insertIndex = withoutDragged.length;
+  if (beforeId) {
+    const idx = withoutDragged.findIndex((item) => item.id === beforeId);
+    if (idx >= 0) insertIndex = idx;
+  }
+
+  withoutDragged.splice(insertIndex, 0, dragged);
+  withoutDragged.forEach((item, i) => {
+    item.manualOrder = i + 1;
+  });
 }
 
 async function refreshEntry(id) {
@@ -695,6 +778,7 @@ async function onCloudPull() {
     try {
       const cloudEntries = await pullEntriesFromCloud();
       state.entries = cloudEntries;
+      ensureManualOrder(state.entries);
       saveEntries();
       render();
       clearForm();
