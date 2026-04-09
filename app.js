@@ -302,6 +302,13 @@ function renderEntryRow(entry, index, query = "") {
   const leftCount = chaptersLeft(entry);
   const hasNew = leftCount !== "?" && Number(leftCount) > 0;
   const displaySeries = entry.series || "No series";
+  const titleTone = getFieldMatchTone(entry.title, query, "strong");
+  const translatedTone = getFieldMatchTone(entry.translatedTitle, query, "medium");
+  const seriesTone = getFieldMatchTone(displaySeries, query, "medium");
+  const genresText = (entry.genres || []).join(", ") || "-";
+  const tagsText = (entry.tags || []).join(", ") || "-";
+  const genresTone = getFieldMatchTone(genresText, query, "soft");
+  const tagsTone = getFieldMatchTone(tagsText, query, "soft");
   const coverContent = entry.coverDataUrl
     ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
     : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`;
@@ -314,14 +321,14 @@ function renderEntryRow(entry, index, query = "") {
       <div class="entry-index">${index}</div>
       ${coverMarkup}
       <div class="entry-main">
-        <h3 class="entry-title">${highlightText(entry.title, query)}${hasNew ? `<span class="entry-new-badge">+${leftCount}</span>` : ""}</h3>
+        <h3 class="entry-title">${highlightText(entry.title, query, titleTone)}${hasNew ? `<span class="entry-new-badge">+${leftCount}</span>` : ""}</h3>
         <p class="entry-summary-line">
-          ${highlightText(displaySeries, query)} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${leftCount} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+          ${highlightText(displaySeries, query, seriesTone)} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${leftCount} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
         </p>
         <div class="entry-details">
-          ${entry.translatedTitle ? `<p class="entry-subtitle">${highlightText(entry.translatedTitle, query)}</p>` : ""}
-          <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
-          <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
+          ${entry.translatedTitle ? `<p class="entry-subtitle">${highlightText(entry.translatedTitle, query, translatedTone)}</p>` : ""}
+          <p class="entry-meta">Genres: ${highlightText(genresText, query, genresTone)}</p>
+          <p class="entry-meta">Tags: ${highlightText(tagsText, query, tagsTone)}</p>
           ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
         </div>
       </div>
@@ -1464,7 +1471,7 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function highlightText(value, query) {
+function highlightText(value, query, tone = "soft") {
   const text = String(value || "");
   const escapedText = escapeHtml(text);
   const rawQuery = String(query || "").trim();
@@ -1479,7 +1486,29 @@ function highlightText(value, query) {
   if (!terms.length) return escapedText;
 
   const pattern = new RegExp(`(${terms.join("|")})`, "ig");
-  return escapedText.replace(pattern, '<mark class="entry-highlight">$1</mark>');
+  const safeTone = ["strong", "medium", "soft"].includes(tone) ? tone : "soft";
+  return escapedText.replace(pattern, `<mark class="entry-highlight entry-highlight-${safeTone}">$1</mark>`);
+}
+
+function getFieldMatchTone(value, query, fallbackTone = "soft") {
+  const normalizedValue = normalizeForComparison(value || "");
+  const normalizedQuery = normalizeForComparison(query || "");
+  if (!normalizedValue || !normalizedQuery) return fallbackTone;
+
+  const compactValue = normalizedValue.replace(/\s+/g, "");
+  const compactQuery = normalizedQuery.replace(/\s+/g, "");
+
+  if (normalizedValue === normalizedQuery || (compactQuery && compactValue === compactQuery)) {
+    return "strong";
+  }
+  if (normalizedValue.startsWith(normalizedQuery) || (compactQuery && compactValue.startsWith(compactQuery))) {
+    return "medium";
+  }
+  if (normalizedValue.includes(normalizedQuery) || (compactQuery && compactValue.includes(compactQuery))) {
+    return "soft";
+  }
+
+  return fallbackTone;
 }
 
 function safeExternalHref(value) {
