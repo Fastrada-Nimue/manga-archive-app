@@ -35,31 +35,6 @@
         <form id="entry-form" class="form-grid">
           <input type="hidden" id="entry-id" />
 
-          <div class="cloud-sync full-width">
-            <h3>Cloud Sync (GitHub Gist)</h3>
-            <p class="cloud-hint">Store your library online so it syncs across devices.</p>
-            <div class="cloud-grid">
-              <label>
-                GitHub Token
-                <input id="cloud-token" type="password" autocomplete="off" placeholder="ghp_... or fine-grained token" />
-              </label>
-              <label>
-                Gist ID (optional)
-                <input id="cloud-gist-id" type="text" autocomplete="off" placeholder="Leave blank to create new gist" />
-              </label>
-              <label class="cloud-checkbox">
-                <input id="cloud-auto-sync" type="checkbox" />
-                Auto-sync after every change
-              </label>
-            </div>
-            <div class="actions">
-              <button type="button" id="cloud-save">Save Cloud Settings</button>
-              <button type="button" id="cloud-pull" class="secondary">Pull From Cloud</button>
-              <button type="button" id="cloud-push" class="secondary">Push To Cloud</button>
-            </div>
-            <p id="cloud-status" class="cloud-status cloud-idle">Cloud sync is not configured.</p>
-          </div>
-
           <div class="url-import full-width">
             <label>
               Quick-fill from URL
@@ -176,6 +151,33 @@
           <input id="import-json" type="file" accept="application/json" />
         </div>
         <div id="entries" class="entries"></div>
+      </section>
+
+      <section class="panel cloud-panel">
+        <h2>Cloud Sync</h2>
+        <div class="cloud-sync">
+          <p class="cloud-hint">Store your library online so it syncs across devices.</p>
+          <div class="cloud-grid">
+            <label>
+              GitHub Token
+              <input id="cloud-token" type="password" autocomplete="off" placeholder="ghp_... or fine-grained token" />
+            </label>
+            <label>
+              Gist ID (optional)
+              <input id="cloud-gist-id" type="text" autocomplete="off" placeholder="Leave blank to create new gist" />
+            </label>
+            <label class="cloud-checkbox">
+              <input id="cloud-auto-sync" type="checkbox" />
+              Auto-sync after every change
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="cloud-save">Save Cloud Settings</button>
+            <button type="button" id="cloud-pull" class="secondary">Pull From Cloud</button>
+            <button type="button" id="cloud-push" class="secondary">Push To Cloud</button>
+          </div>
+          <p id="cloud-status" class="cloud-status cloud-idle">Cloud sync is not configured.</p>
+        </div>
       </section>
     </main>
 
