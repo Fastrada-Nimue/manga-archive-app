@@ -129,8 +129,9 @@ function saveEntries() {
 function onSave(event) {
   event.preventDefault();
 
+  const entryId = elements.id.value || null;
   const entry = {
-    id: elements.id.value || createId(),
+    id: entryId || createId(),
     title: elements.title.value.trim(),
     translatedTitle: elements.translatedTitle.value.trim(),
     sourceUrl: elements.urlImport.value.trim(),
@@ -151,11 +152,25 @@ function onSave(event) {
 
   if (!entry.title) return;
 
-  const existingIndex = state.entries.findIndex((item) => item.id === entry.id);
+  // Check for existing entry by ID first
+  let existingIndex = state.entries.findIndex((item) => item.id === entry.id);
+  
+  // If no ID-based match and this is a new entry, check for duplicate by title
+  if (existingIndex < 0 && !entryId) {
+    const similar = findSimilarEntry(entry.title, entry.translatedTitle);
+    if (similar) {
+      entry.id = similar.id;
+      existingIndex = state.entries.findIndex((item) => item.id === similar.id);
+    }
+  }
+  
   if (existingIndex >= 0) {
+    // Update existing entry, preserve manual order and id
+    entry.id = state.entries[existingIndex].id;
     entry.manualOrder = state.entries[existingIndex].manualOrder;
     state.entries[existingIndex] = entry;
   } else {
+    // New entry
     entry.manualOrder = getNextManualOrderForBucket(statusBucket(entry.status));
     state.entries.unshift(entry);
   }
@@ -1347,4 +1362,35 @@ function pickAlternateTitle(primary, candidates) {
     return value;
   }
   return "";
+}
+
+function normalizeForComparison(text) {
+  if (!text) return "";
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "") // Remove special chars
+    .replace(/\s+/g, " ") // Normalize spaces
+    .trim();
+}
+
+function findSimilarEntry(title, translatedTitle, currentId = null) {
+  if (!title) return null;
+  
+  const normalizedInput = normalizeForComparison(title);
+  const normalizedTranslated = normalizeForComparison(translatedTitle);
+  
+  for (const entry of state.entries) {
+    if (currentId && entry.id === currentId) continue; // Skip self
+    
+    const normalizedExisting = normalizeForComparison(entry.title);
+    const normalizedExistingTranslated = normalizeForComparison(entry.translatedTitle);
+    
+    // Exact match on normalized title or translated title
+    if (normalizedInput === normalizedExisting) return entry;
+    if (normalizedInput === normalizedExistingTranslated) return entry;
+    if (normalizedTranslated && (normalizedTranslated === normalizedExisting || normalizedTranslated === normalizedExistingTranslated)) return entry;
+  }
+  
+  return null;
 }
