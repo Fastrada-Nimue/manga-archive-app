@@ -1207,7 +1207,8 @@ function fetchManhuafast(parsedUrl) {
     .split("/")
     .map((part) => decodeURIComponent(part).trim().toLowerCase())
     .filter(Boolean)
-    .filter((part) => !skip.has(part));
+    .filter((part) => !skip.has(part))
+    .filter((part) => !isChapterLikeSegment(part));
 
   const slug = segments[segments.length - 1] || "";
   const title = slugToTitle(slug) || "Unknown title";
@@ -1215,8 +1216,15 @@ function fetchManhuafast(parsedUrl) {
   return fetchManhuafastEnriched(title);
 }
 
+function isChapterLikeSegment(part) {
+  if (!part) return false;
+  return /^(ch|chapter|ep|episode)[-_ ]?\d+(?:\.\d+)?$/i.test(part)
+    || /^\d+(?:\.\d+)?$/.test(part);
+}
+
 async function fetchManhuafastEnriched(title) {
   const enriched = await fetchAniListBySearch(title);
+  const jikanFallback = enriched?.coverUrl ? null : await fetchJikanBySearch(title);
   const normalizedBase = normalizeForComparison(title);
   const normalizedEnrichedTitle = normalizeForComparison(enriched?.title || "");
 
@@ -1232,15 +1240,15 @@ async function fetchManhuafastEnriched(title) {
   ]);
 
   return {
-    source: enriched ? "ManhuaFast + AniList" : "ManhuaFast",
+    source: enriched ? "ManhuaFast + AniList" : (jikanFallback ? "ManhuaFast + MyAnimeList" : "ManhuaFast"),
     title: primaryTitle,
     translatedTitle: alternateTitle,
-    genres: enriched?.genres || [],
+    genres: enriched?.genres || jikanFallback?.genres || [],
     tags: ["manhuafast", ...(enriched?.tags || [])],
-    status: enriched?.status || "planned",
-    latestChapter: enriched?.latestChapter ?? null,
-    coverUrl: enriched?.coverUrl || null,
-    latestChapterDate: enriched?.latestChapterDate || null,
+    status: enriched?.status || jikanFallback?.status || "planned",
+    latestChapter: enriched?.latestChapter ?? jikanFallback?.latestChapter ?? null,
+    coverUrl: enriched?.coverUrl || jikanFallback?.coverUrl || null,
+    latestChapterDate: enriched?.latestChapterDate || jikanFallback?.latestChapterDate || null,
   };
 }
 
@@ -1347,6 +1355,15 @@ async function fetchJikanBySearch(title) {
     return {
       latestChapter: normalizeNumber(best.chapters),
       latestChapterDate: (best.published?.from || "").split("T")[0] || null,
+      coverUrl: best.images?.jpg?.large_image_url || best.images?.jpg?.image_url || null,
+      genres: (best.genres || []).map((item) => String(item.name || "").toLowerCase()).filter(Boolean),
+      status: String(best.status || "").includes("Publishing")
+        ? "reading"
+        : String(best.status || "").includes("Finished")
+          ? "completed"
+          : (String(best.status || "").includes("Hiatus") || String(best.status || "").includes("Discontinued"))
+            ? "on-hold"
+            : "planned",
       source: "Jikan search",
     };
   } catch {
