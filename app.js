@@ -1453,32 +1453,32 @@ function pickNewestDate(...dates) {
 }
 
 function fillFormFromMeta(meta) {
-  if (meta.title && !elements.title.value.trim()) {
+  if (meta.title) {
     elements.title.value = meta.title;
   }
-  if (meta.translatedTitle && !elements.translatedTitle.value.trim()) {
-    elements.translatedTitle.value = meta.translatedTitle;
+  if (Object.prototype.hasOwnProperty.call(meta, "translatedTitle")) {
+    elements.translatedTitle.value = meta.translatedTitle || "";
   }
-  if (meta.genres?.length) {
+  if (Array.isArray(meta.genres)) {
     elements.genres.value = meta.genres.join(", ");
   }
-  if (meta.tags?.length) {
+  if (Array.isArray(meta.tags)) {
     elements.tags.value = meta.tags.join(", ");
   }
   if (meta.status) {
     elements.status.value = meta.status;
   }
-  if (meta.latestChapter != null) {
-    elements.latestChapter.value = meta.latestChapter;
+  if (Object.prototype.hasOwnProperty.call(meta, "latestChapter")) {
+    elements.latestChapter.value = meta.latestChapter ?? "";
   }
-  if (meta.latestChapterDate) {
-    elements.latestChapterDate.value = meta.latestChapterDate;
+  if (Object.prototype.hasOwnProperty.call(meta, "latestChapterDate")) {
+    elements.latestChapterDate.value = meta.latestChapterDate || "";
   }
-  if (meta.chapter != null) {
-    elements.chapter.value = meta.chapter;
+  if (Object.prototype.hasOwnProperty.call(meta, "chapter")) {
+    elements.chapter.value = meta.chapter ?? "";
   }
-  if (meta.coverUrl && !state.coverDataUrl) {
-    state.coverDataUrl = meta.coverUrl;
+  if (Object.prototype.hasOwnProperty.call(meta, "coverUrl")) {
+    state.coverDataUrl = meta.coverUrl || "";
     syncCoverPreview();
   }
 }
