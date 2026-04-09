@@ -217,10 +217,12 @@ button:hover,
   border-radius: 8px;
   padding: 0.55rem;
   background: #fff;
+  cursor: grab;
 }
 
 .entry.dragging {
   opacity: 0.55;
+  cursor: grabbing;
 }
 
 .entry-compact {
