@@ -660,12 +660,14 @@ async function refreshEntry(id) {
 
   try {
     const meta = await fetchMetaFromUrl(entry.sourceUrl);
+    const estimate = await fetchLatestChapterEstimate(entry.title, entry.translatedTitle);
     const index = state.entries.findIndex((item) => item.id === id);
     if (index < 0) return;
 
     const next = { ...state.entries[index] };
-    if (meta.latestChapter != null) next.latestChapter = meta.latestChapter;
-    if (meta.latestChapterDate) next.latestChapterDate = meta.latestChapterDate;
+    const candidates = [meta.latestChapter, estimate?.latestChapter].filter((value) => value != null);
+    if (candidates.length) next.latestChapter = Math.max(...candidates);
+    next.latestChapterDate = pickNewestDate(meta.latestChapterDate, estimate?.latestChapterDate, next.latestChapterDate);
     if (meta.status) next.status = meta.status;
     if (meta.genres?.length) next.genres = meta.genres;
     if (meta.tags?.length) next.tags = meta.tags;
@@ -1012,6 +1014,13 @@ async function fetchMetaFromUrl(raw) {
     meta.chapter = chapterFromUrl;
   }
 
+  const estimate = await fetchLatestChapterEstimate(meta.title, meta.translatedTitle);
+  const chapterCandidates = [meta.latestChapter, estimate?.latestChapter].filter((value) => value != null);
+  if (chapterCandidates.length) {
+    meta.latestChapter = Math.max(...chapterCandidates);
+  }
+  meta.latestChapterDate = pickNewestDate(meta.latestChapterDate, estimate?.latestChapterDate);
+
   return meta;
 }
 
@@ -1272,6 +1281,84 @@ async function fetchAniListBySearch(title) {
   } catch {
     return null;
   }
+}
+
+async function fetchJikanBySearch(title) {
+  const query = encodeURIComponent(title || "");
+  if (!query) return null;
+
+  try {
+    const res = await fetch(`https://api.jikan.moe/v4/manga?q=${query}&limit=5`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const items = Array.isArray(json.data) ? json.data : [];
+    if (!items.length) return null;
+
+    const normalizedNeedle = normalizeForComparison(title);
+    const ranked = items
+      .map((item) => {
+        const t1 = normalizeForComparison(item.title || "");
+        const t2 = normalizeForComparison(item.title_english || "");
+        const t3 = normalizeForComparison(item.title_japanese || "");
+        const isExact = normalizedNeedle && [t1, t2, t3].includes(normalizedNeedle);
+        return {
+          item,
+          score: isExact ? 2 : 1,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const best = ranked[0]?.item;
+    if (!best) return null;
+
+    return {
+      latestChapter: normalizeNumber(best.chapters),
+      latestChapterDate: (best.published?.from || "").split("T")[0] || null,
+      source: "Jikan search",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLatestChapterEstimate(title, translatedTitle) {
+  const searchTitle = title || translatedTitle || "";
+  if (!searchTitle) return null;
+
+  const [aniResult, jikanResult] = await Promise.allSettled([
+    fetchAniListBySearch(searchTitle),
+    fetchJikanBySearch(searchTitle),
+  ]);
+
+  const candidates = [
+    aniResult.status === "fulfilled" ? aniResult.value : null,
+    jikanResult.status === "fulfilled" ? jikanResult.value : null,
+  ].filter(Boolean);
+
+  if (!candidates.length) return null;
+
+  const chapters = candidates
+    .map((item) => normalizeNumber(item.latestChapter))
+    .filter((value) => value != null);
+
+  return {
+    latestChapter: chapters.length ? Math.max(...chapters) : null,
+    latestChapterDate: pickNewestDate(...candidates.map((item) => item.latestChapterDate)),
+    source: candidates.map((item) => item.source).filter(Boolean).join(" + "),
+  };
+}
+
+function pickNewestDate(...dates) {
+  const valid = dates
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value));
+
+  if (!valid.length) return null;
+  return valid.sort().at(-1) || null;
 }
 
 function fillFormFromMeta(meta) {
