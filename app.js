@@ -1217,11 +1217,24 @@ function fetchManhuafast(parsedUrl) {
 
 async function fetchManhuafastEnriched(title) {
   const enriched = await fetchAniListBySearch(title);
+  const normalizedBase = normalizeForComparison(title);
+  const normalizedEnrichedTitle = normalizeForComparison(enriched?.title || "");
+
+  // Keep the URL-derived title as primary unless AniList found effectively the same name.
+  const primaryTitle =
+    enriched?.title && normalizedEnrichedTitle === normalizedBase
+      ? enriched.title
+      : title;
+
+  const alternateTitle = pickAlternateTitle(primaryTitle, [
+    enriched?.title,
+    enriched?.translatedTitle,
+  ]);
 
   return {
     source: enriched ? "ManhuaFast + AniList" : "ManhuaFast",
-    title: enriched?.title || title,
-    translatedTitle: enriched?.translatedTitle || "",
+    title: primaryTitle,
+    translatedTitle: alternateTitle,
     genres: enriched?.genres || [],
     tags: ["manhuafast", ...(enriched?.tags || [])],
     status: enriched?.status || "planned",
