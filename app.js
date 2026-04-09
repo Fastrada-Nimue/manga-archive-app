@@ -200,18 +200,14 @@ function clearForm() {
 }
 
 function render() {
-  const query = elements.search.value.trim().toLowerCase();
+  const query = elements.search.value.trim();
   const status = elements.statusFilter.value;
   const genreQuery = elements.genreFilter.value.trim().toLowerCase();
   const tagQuery = elements.tagFilter.value.trim().toLowerCase();
   const sortBy = elements.sortBy.value;
 
   const filtered = state.entries.filter((entry) => {
-    const matchesText =
-      !query ||
-      entry.title.toLowerCase().includes(query) ||
-      (entry.translatedTitle || "").toLowerCase().includes(query) ||
-      (entry.series || "").toLowerCase().includes(query);
+    const matchesText = matchesEntrySearch(entry, query);
     const matchesStatus = status === "all" || entry.status === status;
     const matchesGenre = !genreQuery || (entry.genres || []).some((item) => item.includes(genreQuery));
     const matchesTag = !tagQuery || (entry.tags || []).some((item) => item.includes(tagQuery));
@@ -1502,21 +1498,83 @@ function normalizeForComparison(text) {
     .trim();
 }
 
+function buildEntrySearchText(entry) {
+  return normalizeForComparison([
+    entry.title,
+    entry.translatedTitle,
+    entry.series,
+    ...(entry.genres || []),
+    ...(entry.tags || []),
+  ].filter(Boolean).join(" "));
+}
+
+function matchesEntrySearch(entry, query) {
+  if (!query) return true;
+
+  const normalizedQuery = normalizeForComparison(query);
+  if (!normalizedQuery) return true;
+
+  const queryCompact = normalizedQuery.replace(/\s+/g, "");
+  const haystack = buildEntrySearchText(entry);
+  const haystackCompact = haystack.replace(/\s+/g, "");
+
+  if (haystack.includes(normalizedQuery)) return true;
+  if (queryCompact && haystackCompact.includes(queryCompact)) return true;
+
+  const parts = normalizedQuery.split(" ").filter(Boolean);
+  return parts.every((part) => haystack.includes(part) || haystackCompact.includes(part));
+}
+
+function normalizeForMerge(text) {
+  if (!text) return "";
+  return String(text)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildMergeTitleKeys(title, translatedTitle) {
+  const keys = new Set();
+  const values = [title, translatedTitle].filter(Boolean);
+
+  for (const value of values) {
+    const normalized = normalizeForMerge(value);
+    if (!normalized) continue;
+    keys.add(normalized);
+
+    const compact = normalized.replace(/\s+/g, "");
+    if (compact.length >= 4) keys.add(compact);
+  }
+
+  return keys;
+}
+
 function findSimilarEntry(title, translatedTitle, currentId = null) {
   if (!title) return null;
-  
-  const trimmedInput = String(title).trim();
-  const trimmedTranslated = String(translatedTitle).trim();
-  
+
+  const incomingKeys = buildMergeTitleKeys(title, translatedTitle);
+  if (!incomingKeys.size) return null;
+
+  let bestMatch = null;
+  let bestUpdatedAt = -1;
+
   for (const entry of state.entries) {
     if (currentId && entry.id === currentId) continue; // Skip self
-    
-    // Exact match (case-insensitive) on title or translated title
-    if (trimmedInput.toLowerCase() === (entry.title || "").trim().toLowerCase()) return entry;
-    if (trimmedInput.toLowerCase() === (entry.translatedTitle || "").trim().toLowerCase()) return entry;
-    if (trimmedTranslated && trimmedTranslated.toLowerCase() === (entry.title || "").trim().toLowerCase()) return entry;
-    if (trimmedTranslated && trimmedTranslated.toLowerCase() === (entry.translatedTitle || "").trim().toLowerCase()) return entry;
-    
+
+    const existingKeys = buildMergeTitleKeys(entry.title, entry.translatedTitle);
+    const hasMatch = Array.from(incomingKeys).some((key) => existingKeys.has(key));
+    if (!hasMatch) continue;
+
+    const updatedAtTs = Date.parse(entry.updatedAt || "") || 0;
+    if (updatedAtTs > bestUpdatedAt) {
+      bestUpdatedAt = updatedAtTs;
+      bestMatch = entry;
+    }
   }
-  return null;
+
+  return bestMatch;
 }
