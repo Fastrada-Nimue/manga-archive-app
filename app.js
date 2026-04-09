@@ -1225,30 +1225,41 @@ function isChapterLikeSegment(part) {
 async function fetchManhuafastEnriched(title) {
   const enriched = await fetchAniListBySearch(title);
   const jikanFallback = enriched?.coverUrl ? null : await fetchJikanBySearch(title);
+  const trustedEnriched = enriched && namesLikelySameSeries(title, enriched.title, enriched.translatedTitle)
+    ? enriched
+    : null;
+  const trustedJikan = jikanFallback && namesLikelySameSeries(title, jikanFallback.title)
+    ? jikanFallback
+    : null;
+
   const normalizedBase = normalizeForComparison(title);
-  const normalizedEnrichedTitle = normalizeForComparison(enriched?.title || "");
+  const normalizedEnrichedTitle = normalizeForComparison(trustedEnriched?.title || "");
 
   // Keep the URL-derived title as primary unless AniList found effectively the same name.
   const primaryTitle =
-    enriched?.title && normalizedEnrichedTitle === normalizedBase
-      ? enriched.title
+    trustedEnriched?.title && normalizedEnrichedTitle === normalizedBase
+      ? trustedEnriched.title
       : title;
 
   const alternateTitle = pickAlternateTitle(primaryTitle, [
-    enriched?.title,
-    enriched?.translatedTitle,
+    trustedEnriched?.title,
+    trustedEnriched?.translatedTitle,
   ]);
 
+  const meta = trustedEnriched || trustedJikan;
+
   return {
-    source: enriched ? "ManhuaFast + AniList" : (jikanFallback ? "ManhuaFast + MyAnimeList" : "ManhuaFast"),
+    source: trustedEnriched
+      ? "ManhuaFast + AniList"
+      : (trustedJikan ? "ManhuaFast + MyAnimeList" : "ManhuaFast"),
     title: primaryTitle,
     translatedTitle: alternateTitle,
-    genres: enriched?.genres || jikanFallback?.genres || [],
-    tags: ["manhuafast", ...(enriched?.tags || [])],
-    status: enriched?.status || jikanFallback?.status || "planned",
-    latestChapter: enriched?.latestChapter ?? jikanFallback?.latestChapter ?? null,
-    coverUrl: enriched?.coverUrl || jikanFallback?.coverUrl || null,
-    latestChapterDate: enriched?.latestChapterDate || jikanFallback?.latestChapterDate || null,
+    genres: meta?.genres || [],
+    tags: ["manhuafast", ...(trustedEnriched?.tags || [])],
+    status: meta?.status || "planned",
+    latestChapter: meta?.latestChapter ?? null,
+    coverUrl: meta?.coverUrl || null,
+    latestChapterDate: meta?.latestChapterDate || null,
   };
 }
 
@@ -1353,6 +1364,7 @@ async function fetchJikanBySearch(title) {
     if (!best) return null;
 
     return {
+      title: best.title_english || best.title || title,
       latestChapter: normalizeNumber(best.chapters),
       latestChapterDate: (best.published?.from || "").split("T")[0] || null,
       coverUrl: best.images?.jpg?.large_image_url || best.images?.jpg?.image_url || null,
@@ -1369,6 +1381,21 @@ async function fetchJikanBySearch(title) {
   } catch {
     return null;
   }
+}
+
+function namesLikelySameSeries(baseTitle, ...candidateTitles) {
+  const base = normalizeForMerge(baseTitle || "");
+  if (!base) return false;
+  const baseCompact = base.replace(/\s+/g, "");
+
+  return candidateTitles.some((value) => {
+    const candidate = normalizeForMerge(value || "");
+    if (!candidate) return false;
+    if (candidate === base) return true;
+
+    const candidateCompact = candidate.replace(/\s+/g, "");
+    return candidateCompact === baseCompact;
+  });
 }
 
 async function fetchLatestChapterEstimate(title, translatedTitle) {
