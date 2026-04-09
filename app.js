@@ -129,9 +129,9 @@ function saveEntries() {
 function onSave(event) {
   event.preventDefault();
 
-  const entryId = elements.id.value || null;
-  const entry = {
-    id: entryId || createId(),
+  const isNewEntry = !elements.id.value;
+  let entry = {
+    id: null, // Will be assigned later
     title: elements.title.value.trim(),
     translatedTitle: elements.translatedTitle.value.trim(),
     sourceUrl: elements.urlImport.value.trim(),
@@ -152,21 +152,31 @@ function onSave(event) {
 
   if (!entry.title) return;
 
-  // Check for existing entry by ID first
-  let existingIndex = state.entries.findIndex((item) => item.id === entry.id);
-  
-  // If no ID-based match and this is a new entry, check for duplicate by title
-  if (existingIndex < 0 && !entryId) {
-    const similar = findSimilarEntry(entry.title, entry.translatedTitle);
-    if (similar) {
-      entry.id = similar.id;
-      existingIndex = state.entries.findIndex((item) => item.id === similar.id);
+  let existingIndex = -1;
+  let existingEntry = null;
+
+  if (!isNewEntry) {
+    // Editing existing entry by ID
+    existingEntry = state.entries.find((item) => item.id === elements.id.value);
+    existingIndex = state.entries.findIndex((item) => item.id === elements.id.value);
+    if (existingEntry) {
+      entry.id = existingEntry.id;
+    }
+  } else {
+    // New entry - check for duplicate by title
+    existingEntry = findSimilarEntry(entry.title, entry.translatedTitle);
+    if (existingEntry) {
+      // Found similar entry, update it instead
+      existingIndex = state.entries.findIndex((item) => item.id === existingEntry.id);
+      entry.id = existingEntry.id;
+    } else {
+      // No duplicate found, generate new ID
+      entry.id = createId();
     }
   }
   
   if (existingIndex >= 0) {
-    // Update existing entry, preserve manual order and id
-    entry.id = state.entries[existingIndex].id;
+    // Update existing entry, preserve manual order
     entry.manualOrder = state.entries[existingIndex].manualOrder;
     state.entries[existingIndex] = entry;
   } else {
