@@ -217,6 +217,15 @@ function render() {
       if (action === "delete") deleteEntry(id);
     });
   });
+
+  elements.entries.querySelectorAll("select[data-action='move']").forEach((select) => {
+    select.addEventListener("change", () => {
+      const id = select.getAttribute("data-id");
+      const targetBucket = select.value;
+      if (!id || !targetBucket) return;
+      moveEntryToBucket(id, targetBucket);
+    });
+  });
 }
 
 function renderStatusSection(bucket, entries) {
@@ -262,6 +271,11 @@ function renderEntryRow(entry, index) {
         </div>
       </div>
       <div class="entry-actions entry-actions-compact">
+        <select class="move-select" data-action="move" data-id="${entry.id}" aria-label="Move ${escapeHtml(entry.title)} to group">
+          <option value="begun" ${statusBucket(entry.status) === "begun" ? "selected" : ""}>Move: Begun</option>
+          <option value="completed" ${statusBucket(entry.status) === "completed" ? "selected" : ""}>Move: Completed</option>
+          <option value="potential" ${statusBucket(entry.status) === "potential" ? "selected" : ""}>Move: Potential</option>
+        </select>
         <button type="button" class="secondary" data-action="toggle" data-id="${entry.id}">${state.expandedEntryIds.has(entry.id) ? "Collapse" : "Expand"}</button>
         <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
         <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh</button>
@@ -275,6 +289,26 @@ function statusBucket(status) {
   if (status === "reading") return "begun";
   if (status === "completed") return "completed";
   return "potential";
+}
+
+function moveEntryToBucket(id, bucket) {
+  const index = state.entries.findIndex((item) => item.id === id);
+  if (index < 0) return;
+
+  const entry = { ...state.entries[index] };
+  entry.status = statusForBucket(bucket, entry.status);
+  entry.updatedAt = new Date().toISOString();
+
+  state.entries[index] = normalizeEntry(entry);
+  saveEntries();
+  void maybeAutoCloudPush();
+  render();
+}
+
+function statusForBucket(bucket, previousStatus) {
+  if (bucket === "begun") return "reading";
+  if (bucket === "completed") return "completed";
+  return previousStatus === "on-hold" ? "on-hold" : "planned";
 }
 
 function toggleExpanded(id) {
