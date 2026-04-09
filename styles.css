@@ -173,10 +173,41 @@ button:hover,
   gap: 0.6rem;
 }
 
+.entry-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.55rem;
+}
+
+.entry-group-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.entry-group-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.entry-empty-lane {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 0.55rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.entry-group-begun .entry-group-title { color: #47607a; }
+.entry-group-completed .entry-group-title { color: #896100; }
+.entry-group-potential .entry-group-title { color: #6a3ba5; }
+
 .entry {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0.75rem;
+  padding: 0.55rem;
   background: #fff;
 }
 
