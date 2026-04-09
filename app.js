@@ -192,37 +192,19 @@ function render() {
     return;
   }
 
-  elements.entries.innerHTML = filtered
-    .map(
-      (entry, index) => `
-      <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}">
-        <div class="entry-index">${index + 1}</div>
-        ${
-          entry.coverDataUrl
-            ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
-            : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`
-        }
-        <div class="entry-main">
-          <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
-          <p class="entry-summary-line">
-            ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
-          </p>
-          <div class="entry-details">
-            ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
-            <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
-            <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
-            ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
-          </div>
-        </div>
-        <div class="entry-actions entry-actions-compact">
-          <button type="button" class="secondary" data-action="toggle" data-id="${entry.id}">${state.expandedEntryIds.has(entry.id) ? "Collapse" : "Expand"}</button>
-          <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
-          <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh</button>
-          <button type="button" class="secondary" data-action="delete" data-id="${entry.id}">Delete</button>
-        </div>
-      </article>
-      `,
-    )
+  const grouped = {
+    begun: filtered.filter((entry) => statusBucket(entry.status) === "begun"),
+    completed: filtered.filter((entry) => statusBucket(entry.status) === "completed"),
+    potential: filtered.filter((entry) => statusBucket(entry.status) === "potential"),
+  };
+
+  const sectionOrder = ["begun", "completed", "potential"];
+  const requestedBuckets = status === "all"
+    ? sectionOrder
+    : Array.from(new Set(filtered.map((entry) => statusBucket(entry.status))));
+
+  elements.entries.innerHTML = requestedBuckets
+    .map((bucket) => renderStatusSection(bucket, grouped[bucket]))
     .join("");
 
   elements.entries.querySelectorAll("button[data-action]").forEach((button) => {
@@ -235,6 +217,64 @@ function render() {
       if (action === "delete") deleteEntry(id);
     });
   });
+}
+
+function renderStatusSection(bucket, entries) {
+  const labels = {
+    begun: "Begun",
+    completed: "Completed",
+    potential: "Potential",
+  };
+
+  const rows = entries.length
+    ? entries.map((entry, index) => renderEntryRow(entry, index + 1)).join("")
+    : '<div class="entry-empty-lane">No entries in this group.</div>';
+
+  return `
+    <section class="entry-group entry-group-${bucket}">
+      <h3 class="entry-group-title">${labels[bucket]}</h3>
+      <div class="entry-group-list">
+        ${rows}
+      </div>
+    </section>
+  `;
+}
+
+function renderEntryRow(entry, index) {
+  return `
+    <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}">
+      <div class="entry-index">${index}</div>
+      ${
+        entry.coverDataUrl
+          ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
+          : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`
+      }
+      <div class="entry-main">
+        <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
+        <p class="entry-summary-line">
+          ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+        </p>
+        <div class="entry-details">
+          ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
+          <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
+          <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
+          ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
+        </div>
+      </div>
+      <div class="entry-actions entry-actions-compact">
+        <button type="button" class="secondary" data-action="toggle" data-id="${entry.id}">${state.expandedEntryIds.has(entry.id) ? "Collapse" : "Expand"}</button>
+        <button type="button" data-action="edit" data-id="${entry.id}">Edit</button>
+        <button type="button" class="secondary" data-action="refresh" data-id="${entry.id}">Refresh</button>
+        <button type="button" class="secondary" data-action="delete" data-id="${entry.id}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function statusBucket(status) {
+  if (status === "reading") return "begun";
+  if (status === "completed") return "completed";
+  return "potential";
 }
 
 function toggleExpanded(id) {
