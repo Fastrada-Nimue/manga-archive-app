@@ -1202,15 +1202,32 @@ async function fetchJikan(id) {
 }
 
 function fetchManhuafast(parsedUrl) {
-  const skip = new Set(["manga", "manhua", "manhwa", "comic", "series", "read", "chapter"]);
-  const segments = parsedUrl.pathname
+  const containerMarkers = new Set(["manga", "manhua", "manhwa", "comic", "series", "read"]);
+  const rawSegments = parsedUrl.pathname
     .split("/")
     .map((part) => decodeURIComponent(part).trim().toLowerCase())
-    .filter(Boolean)
-    .filter((part) => !skip.has(part))
-    .filter((part) => !isChapterLikeSegment(part));
+    .filter(Boolean);
 
-  const slug = segments[segments.length - 1] || "";
+  let slug = "";
+
+  // Prefer the segment immediately after container markers like /manga/{series-slug}/...
+  for (let i = 0; i < rawSegments.length - 1; i += 1) {
+    if (!containerMarkers.has(rawSegments[i])) continue;
+    const next = rawSegments[i + 1];
+    if (next && !containerMarkers.has(next) && !isChapterLikeSegment(next)) {
+      slug = next;
+      break;
+    }
+  }
+
+  // Fallback: choose the longest non-chapter segment that is not a container marker.
+  if (!slug) {
+    const candidates = rawSegments.filter(
+      (part) => !containerMarkers.has(part) && !isChapterLikeSegment(part),
+    );
+    slug = candidates.sort((a, b) => b.length - a.length)[0] || "";
+  }
+
   const title = slugToTitle(slug) || "Unknown title";
 
   return fetchManhuafastEnriched(title);
