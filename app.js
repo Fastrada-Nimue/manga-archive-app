@@ -244,6 +244,7 @@ function render() {
     button.addEventListener("click", () => {
       const action = button.getAttribute("data-action");
       const id = button.getAttribute("data-id");
+      if (action === "open-link") openEntrySource(id);
       if (action === "toggle") toggleExpanded(id);
       if (action === "edit") editEntry(id);
       if (action === "refresh") void refreshEntry(id);
@@ -286,7 +287,7 @@ function renderStatusSection(bucket, entries) {
 
   return `
     <section class="entry-group entry-group-${bucket}">
-      <h3 class="entry-group-title">${labels[bucket]}</h3>
+      <h3 class="entry-group-title">${labels[bucket]} <span class="entry-group-count">${entries.length}</span></h3>
       <div class="entry-group-list" data-bucket="${bucket}">
         ${rows}
       </div>
@@ -295,18 +296,24 @@ function renderStatusSection(bucket, entries) {
 }
 
 function renderEntryRow(entry, index) {
+  const linkHref = safeExternalHref(entry.sourceUrl);
+  const leftCount = chaptersLeft(entry);
+  const hasNew = leftCount !== "?" && Number(leftCount) > 0;
+  const coverContent = entry.coverDataUrl
+    ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
+    : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`;
+  const coverMarkup = linkHref
+    ? `<button type="button" class="entry-cover-link" data-action="open-link" data-id="${entry.id}" aria-label="Open ${escapeHtml(entry.title)} source">${coverContent}</button>`
+    : coverContent;
+
   return `
     <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}" draggable="true" data-entry-id="${entry.id}">
       <div class="entry-index">${index}</div>
-      ${
-        entry.coverDataUrl
-          ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
-          : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`
-      }
+      ${coverMarkup}
       <div class="entry-main">
-        <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
+        <h3 class="entry-title">${escapeHtml(entry.title)}${hasNew ? `<span class="entry-new-badge">+${leftCount}</span>` : ""}</h3>
         <p class="entry-summary-line">
-          ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${chaptersLeft(entry)} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+          ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${leftCount} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
         </p>
         <div class="entry-details">
           ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
@@ -1448,6 +1455,30 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function safeExternalHref(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function openEntrySource(id) {
+  const entry = state.entries.find((item) => item.id === id);
+  if (!entry) return;
+
+  const href = safeExternalHref(entry.sourceUrl);
+  if (!href) {
+    alert("No valid source URL saved for this entry.");
+    return;
+  }
+
+  window.open(href, "_blank", "noopener,noreferrer");
 }
 
 function pickAlternateTitle(primary, candidates) {
