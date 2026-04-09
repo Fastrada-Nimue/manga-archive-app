@@ -1505,20 +1505,18 @@ function normalizeForComparison(text) {
 function findSimilarEntry(title, translatedTitle, currentId = null) {
   if (!title) return null;
   
-  const normalizedInput = normalizeForComparison(title);
-  const normalizedTranslated = normalizeForComparison(translatedTitle);
+  const trimmedInput = String(title).trim();
+  const trimmedTranslated = String(translatedTitle).trim();
   
   for (const entry of state.entries) {
     if (currentId && entry.id === currentId) continue; // Skip self
     
-    const normalizedExisting = normalizeForComparison(entry.title);
-    const normalizedExistingTranslated = normalizeForComparison(entry.translatedTitle);
+    // Exact match (case-insensitive) on title or translated title
+    if (trimmedInput.toLowerCase() === (entry.title || "").trim().toLowerCase()) return entry;
+    if (trimmedInput.toLowerCase() === (entry.translatedTitle || "").trim().toLowerCase()) return entry;
+    if (trimmedTranslated && trimmedTranslated.toLowerCase() === (entry.title || "").trim().toLowerCase()) return entry;
+    if (trimmedTranslated && trimmedTranslated.toLowerCase() === (entry.translatedTitle || "").trim().toLowerCase()) return entry;
     
-    // Exact match on normalized title or translated title
-    if (normalizedInput === normalizedExisting) return entry;
-    if (normalizedInput === normalizedExistingTranslated) return entry;
-    if (normalizedTranslated && (normalizedTranslated === normalizedExisting || normalizedTranslated === normalizedExistingTranslated)) return entry;
   }
-  
   return null;
 }
