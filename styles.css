@@ -1,20 +1,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,600;7..72,700&family=Sora:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --bg: #f7f3eb;
-  --bg-soft: #efe8da;
-  --ink: #1f2a2f;
-  --muted: #61707a;
+  --bg: #f2f6f7;
+  --bg-soft: #e4ecee;
+  --ink: #14242b;
+  --muted: #4f646e;
   --surface: rgba(255, 253, 249, 0.9);
   --surface-solid: #fffdf9;
-  --line: #d7cbb8;
-  --line-strong: #c6b7a1;
-  --accent: #176b5a;
-  --accent-strong: #0f5144;
-  --accent-soft: #e5f2ee;
+  --line: #cddce1;
+  --line-strong: #b8ccd3;
+  --accent: #0f766e;
+  --accent-strong: #0b5752;
+  --accent-soft: #e2f2ef;
+  --accent-pop: #f1743b;
   --danger-soft: #fff1ec;
-  --shadow-sm: 0 4px 14px rgba(44, 41, 34, 0.08);
-  --shadow-md: 0 12px 28px rgba(42, 38, 30, 0.12);
+  --shadow-sm: 0 7px 18px rgba(20, 45, 55, 0.08);
+  --shadow-md: 0 16px 34px rgba(15, 32, 40, 0.14);
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -27,9 +28,9 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 5% 10%, #efe0c7 0%, transparent 28%),
-    radial-gradient(circle at 90% 15%, #dfeee9 0%, transparent 34%),
-    linear-gradient(180deg, var(--bg) 0%, #f4f0e8 100%);
+    radial-gradient(circle at 9% 10%, #dce9ea 0%, transparent 36%),
+    radial-gradient(circle at 88% 12%, #f3e9db 0%, transparent 38%),
+    linear-gradient(180deg, var(--bg) 0%, #eef3f4 100%);
   color: var(--ink);
   font-family: "Sora", "Segoe UI", sans-serif;
   letter-spacing: 0.01em;
@@ -53,9 +54,9 @@ body::before {
   transform: translateX(-50%);
   z-index: 100;
   width: min(980px, calc(100vw - 20px));
-  border: 1px solid #2a816f;
+  border: 1px solid #2d8e88;
   border-radius: 14px;
-  background: linear-gradient(120deg, #155f51, var(--accent));
+  background: linear-gradient(120deg, #0f6c66, var(--accent));
   color: #fff;
   display: flex;
   flex-wrap: wrap;
@@ -90,17 +91,34 @@ body::before {
 .app-shell {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 1.8rem 1.25rem 2.2rem;
+  padding: 1.9rem 1.25rem 2.2rem;
   display: grid;
   gap: 1.1rem;
 }
 
 .topbar {
-  border: 1px solid var(--line);
+  border: 1px solid #21404f;
   border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 250, 241, 0.94) 100%);
+  background:
+    linear-gradient(140deg, rgba(19, 49, 63, 0.98) 0%, rgba(21, 62, 67, 0.95) 62%, rgba(38, 77, 76, 0.94) 100%);
   box-shadow: var(--shadow-sm);
-  padding: 1rem 1.05rem;
+  padding: 1rem 1.05rem 1.1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.topbar::after {
+  content: "NEO LIBRARY";
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(214, 243, 241, 0.8);
+  border: 1px solid rgba(164, 221, 216, 0.5);
+  border-radius: 999px;
+  padding: 0.25rem 0.42rem;
 }
 
 .topbar h1 {
@@ -108,11 +126,12 @@ body::before {
   font-family: "Literata", Georgia, serif;
   font-size: clamp(1.7rem, 3.7vw, 2.4rem);
   letter-spacing: 0.01em;
+  color: #f5fbfc;
 }
 
 .topbar p {
   margin: 0.4rem 0 0;
-  color: var(--muted);
+  color: #d2e7eb;
   font-size: 0.95rem;
 }
 
@@ -219,8 +238,8 @@ button:hover,
   grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
   gap: 0.5rem;
   margin: 0.9rem 0;
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 241, 231, 0.82));
+  border: 1px solid #274252;
+  background: linear-gradient(160deg, rgba(23, 56, 69, 0.97), rgba(28, 66, 74, 0.94));
   border-radius: var(--radius-md);
   padding: 0.7rem;
   position: sticky;
@@ -233,15 +252,29 @@ button:hover,
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid var(--line);
+  border: 1px solid #35566a;
   border-radius: 10px;
   padding: 0.5rem 0.6rem;
-  background: var(--surface-solid);
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8f3f7;
   font-size: 0.88rem;
 }
 
 .toolbar-toggle input {
   margin: 0;
+}
+
+.toolbar input,
+.toolbar select,
+.toolbar button,
+.toolbar .import-btn {
+  border-color: #3f5f71;
+  background: rgba(250, 255, 255, 0.95);
+}
+
+.toolbar .secondary {
+  background: linear-gradient(135deg, #eaf3f8, #ddebf2);
+  color: #1e3643;
 }
 
 #import-json {
@@ -307,19 +340,19 @@ button:hover,
 }
 
 .entry-group-begun .entry-group-title { color: #47607a; }
-.entry-group-completed .entry-group-title { color: #8a5f00; }
-.entry-group-potential .entry-group-title { color: #6b4f25; }
+.entry-group-completed .entry-group-title { color: #8f4f0e; }
+.entry-group-potential .entry-group-title { color: #4f6674; }
 
 .entry-group-begun {
-  border-left: 4px solid #4c7aa5;
+  border-left: 4px solid #3482b2;
 }
 
 .entry-group-completed {
-  border-left: 4px solid #c59424;
+  border-left: 4px solid #e0803d;
 }
 
 .entry-group-potential {
-  border-left: 4px solid #a57b47;
+  border-left: 4px solid #6c95ac;
 }
 
 .entry {
@@ -456,9 +489,9 @@ button:hover,
   justify-content: center;
   padding: 0.14rem 0.48rem;
   border-radius: 999px;
-  background: #e9f7ef;
-  color: #17633f;
-  border: 1px solid #b2ddc4;
+  background: #fff1e7;
+  color: #93400f;
+  border: 1px solid #f0bf96;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -525,8 +558,8 @@ button:hover,
 }
 
 .cloud-sync {
-  background: linear-gradient(180deg, #ebf6f3, #e2f0ec);
-  border: 1px solid #b8d8cf;
+  background: linear-gradient(180deg, #e8f3f5, #deedf2);
+  border: 1px solid #b5ccd6;
   border-radius: 12px;
   padding: 0.75rem;
 }
@@ -573,6 +606,11 @@ button:hover,
 .cloud-loading { background: #eef3ff; color: #3a5bc7; }
 .cloud-success { background: #eaffea; color: #1a7a35; }
 .cloud-error { background: #fff0ef; color: #b33; }
+
+.entry-group-list .entry:nth-child(1) { animation-delay: 0.02s; }
+.entry-group-list .entry:nth-child(2) { animation-delay: 0.04s; }
+.entry-group-list .entry:nth-child(3) { animation-delay: 0.06s; }
+.entry-group-list .entry:nth-child(4) { animation-delay: 0.08s; }
 
 .url-row {
   display: flex;
