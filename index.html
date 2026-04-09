@@ -31,6 +31,37 @@
       </header>
 
       <section class="panel">
+        <h2>Library</h2>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search title or series..." />
+          <select id="status-filter">
+            <option value="all">All statuses</option>
+            <option value="reading">Reading</option>
+            <option value="completed">Completed</option>
+            <option value="planned">Planned</option>
+            <option value="on-hold">On Hold</option>
+          </select>
+          <input id="genre-filter" type="search" placeholder="Filter by genre..." />
+          <input id="tag-filter" type="search" placeholder="Filter by tag..." />
+          <select id="sort-by">
+            <option value="updated-desc">Recently updated</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="rating-desc">Rating high-low</option>
+            <option value="volume-desc">Volume high-low</option>
+            <option value="chapter-desc">Chapter high-low</option>
+          </select>
+          <label class="toolbar-toggle">
+            <input id="compact-mode" type="checkbox" checked />
+            One-line mode
+          </label>
+          <button id="export-json" class="secondary" type="button">Export JSON</button>
+          <label class="import-btn" for="import-json">Import JSON</label>
+          <input id="import-json" type="file" accept="application/json" />
+        </div>
+        <div id="entries" class="entries"></div>
+      </section>
+
+      <section class="panel">
         <h2>Add or Update Entry</h2>
         <form id="entry-form" class="form-grid">
           <input type="hidden" id="entry-id" />
@@ -120,37 +151,6 @@
             <button type="button" id="reset-form" class="secondary">Clear</button>
           </div>
         </form>
-      </section>
-
-      <section class="panel">
-        <h2>Library</h2>
-        <div class="toolbar">
-          <input id="search" type="search" placeholder="Search title or series..." />
-          <select id="status-filter">
-            <option value="all">All statuses</option>
-            <option value="reading">Reading</option>
-            <option value="completed">Completed</option>
-            <option value="planned">Planned</option>
-            <option value="on-hold">On Hold</option>
-          </select>
-          <input id="genre-filter" type="search" placeholder="Filter by genre..." />
-          <input id="tag-filter" type="search" placeholder="Filter by tag..." />
-          <select id="sort-by">
-            <option value="updated-desc">Recently updated</option>
-            <option value="title-asc">Title A-Z</option>
-            <option value="rating-desc">Rating high-low</option>
-            <option value="volume-desc">Volume high-low</option>
-            <option value="chapter-desc">Chapter high-low</option>
-          </select>
-          <label class="toolbar-toggle">
-            <input id="compact-mode" type="checkbox" checked />
-            One-line mode
-          </label>
-          <button id="export-json" class="secondary" type="button">Export JSON</button>
-          <label class="import-btn" for="import-json">Import JSON</label>
-          <input id="import-json" type="file" accept="application/json" />
-        </div>
-        <div id="entries" class="entries"></div>
       </section>
 
       <section class="panel cloud-panel">
