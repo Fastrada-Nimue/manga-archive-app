@@ -12,6 +12,7 @@ const state = {
   cloudBusy: false,
   compactMode: uiSettings.compactMode,
   expandedEntryIds: new Set(),
+  draggingEntryId: null,
 };
 
 const elements = {
@@ -226,6 +227,18 @@ function render() {
       moveEntryToBucket(id, targetBucket);
     });
   });
+
+  elements.entries.querySelectorAll("article[data-entry-id]").forEach((card) => {
+    card.addEventListener("dragstart", onEntryDragStart);
+    card.addEventListener("dragend", onEntryDragEnd);
+  });
+
+  elements.entries.querySelectorAll(".entry-group-list[data-bucket]").forEach((lane) => {
+    lane.addEventListener("dragover", onLaneDragOver);
+    lane.addEventListener("drop", onLaneDrop);
+    lane.addEventListener("dragenter", onLaneDragEnter);
+    lane.addEventListener("dragleave", onLaneDragLeave);
+  });
 }
 
 function renderStatusSection(bucket, entries) {
@@ -242,7 +255,7 @@ function renderStatusSection(bucket, entries) {
   return `
     <section class="entry-group entry-group-${bucket}">
       <h3 class="entry-group-title">${labels[bucket]}</h3>
-      <div class="entry-group-list">
+      <div class="entry-group-list" data-bucket="${bucket}">
         ${rows}
       </div>
     </section>
@@ -251,7 +264,7 @@ function renderStatusSection(bucket, entries) {
 
 function renderEntryRow(entry, index) {
   return `
-    <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}">
+    <article class="entry entry-compact ${state.compactMode ? "entry-one-line" : ""} ${state.expandedEntryIds.has(entry.id) ? "expanded" : ""}" draggable="true" data-entry-id="${entry.id}">
       <div class="entry-index">${index}</div>
       ${
         entry.coverDataUrl
@@ -309,6 +322,52 @@ function statusForBucket(bucket, previousStatus) {
   if (bucket === "begun") return "reading";
   if (bucket === "completed") return "completed";
   return previousStatus === "on-hold" ? "on-hold" : "planned";
+}
+
+function onEntryDragStart(event) {
+  const card = event.currentTarget;
+  const id = card.getAttribute("data-entry-id");
+  if (!id) return;
+
+  state.draggingEntryId = id;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", id);
+  card.classList.add("dragging");
+}
+
+function onEntryDragEnd(event) {
+  state.draggingEntryId = null;
+  event.currentTarget.classList.remove("dragging");
+  elements.entries.querySelectorAll(".entry-group-list.drop-active").forEach((lane) => {
+    lane.classList.remove("drop-active");
+  });
+}
+
+function onLaneDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+}
+
+function onLaneDrop(event) {
+  event.preventDefault();
+  const lane = event.currentTarget;
+  const targetBucket = lane.getAttribute("data-bucket");
+  const draggedId = event.dataTransfer.getData("text/plain") || state.draggingEntryId;
+  lane.classList.remove("drop-active");
+  if (!draggedId || !targetBucket) return;
+  moveEntryToBucket(draggedId, targetBucket);
+}
+
+function onLaneDragEnter(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add("drop-active");
+}
+
+function onLaneDragLeave(event) {
+  const lane = event.currentTarget;
+  if (!lane.contains(event.relatedTarget)) {
+    lane.classList.remove("drop-active");
+  }
 }
 
 function toggleExpanded(id) {
