@@ -413,6 +413,14 @@ button:hover,
   line-height: 1.45;
 }
 
+.entry-highlight {
+  background: #ffeaa6;
+  color: #4f3a00;
+  border-radius: 4px;
+  padding: 0 0.14em;
+  box-decoration-break: clone;
+}
+
 .entry-details {
   margin-top: 0.2rem;
 }
