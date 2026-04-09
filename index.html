@@ -32,6 +32,8 @@
 
       <section class="panel">
         <h2>Library</h2>
+        <div id="entries" class="entries"></div>
+
         <div class="toolbar">
           <input id="search" type="search" placeholder="Search title or series..." />
           <select id="status-filter">
@@ -59,10 +61,7 @@
           <label class="import-btn" for="import-json">Import JSON</label>
           <input id="import-json" type="file" accept="application/json" />
         </div>
-        <div id="entries" class="entries"></div>
-      </section>
 
-      <section class="panel">
         <h2>Add or Update Entry</h2>
         <form id="entry-form" class="form-grid">
           <input type="hidden" id="entry-id" />
@@ -116,6 +115,11 @@
           <label>
             Latest Chapter
             <input id="latest-chapter" name="latest-chapter" type="number" min="0" step="1" />
+          </label>
+
+          <label>
+            Latest Chapter Date
+            <input id="latest-chapter-date" name="latest-chapter-date" type="date" />
           </label>
 
           <label>
