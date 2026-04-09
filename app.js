@@ -1230,7 +1230,7 @@ function fetchManhuafast(parsedUrl) {
 
   const title = slugToTitle(slug) || "Unknown title";
 
-  return fetchManhuafastEnriched(title);
+  return fetchManhuafastEnriched(title, parsedUrl);
 }
 
 function isChapterLikeSegment(part) {
@@ -1239,7 +1239,8 @@ function isChapterLikeSegment(part) {
     || /^\d+(?:\.\d+)?$/.test(part);
 }
 
-async function fetchManhuafastEnriched(title) {
+async function fetchManhuafastEnriched(title, parsedUrl) {
+  const pageCoverUrl = await fetchManhuafastCover(parsedUrl);
   const enriched = await fetchAniListBySearch(title);
   const jikanFallback = enriched?.coverUrl ? null : await fetchJikanBySearch(title);
   const trustedEnriched = enriched && namesLikelySameSeries(title, enriched.title, enriched.translatedTitle)
@@ -1275,9 +1276,74 @@ async function fetchManhuafastEnriched(title) {
     tags: ["manhuafast", ...(trustedEnriched?.tags || [])],
     status: meta?.status || "planned",
     latestChapter: meta?.latestChapter ?? null,
-    coverUrl: meta?.coverUrl || null,
+    coverUrl: pageCoverUrl || meta?.coverUrl || null,
     latestChapterDate: meta?.latestChapterDate || null,
   };
+}
+
+async function fetchManhuafastCover(parsedUrl) {
+  if (!parsedUrl) return null;
+
+  const candidates = new Set();
+  candidates.add(parsedUrl.toString());
+
+  const chapterPath = parsedUrl.pathname.replace(/\/?(chapter|ch|episode|ep)[-_ ]?\d+(?:\.\d+)?\/?$/i, "/");
+  if (chapterPath !== parsedUrl.pathname) {
+    candidates.add(new URL(chapterPath, parsedUrl.origin).toString());
+  }
+
+  for (const pageUrl of candidates) {
+    const ogImage = await fetchOpenGraphImageFromUrl(pageUrl);
+    if (ogImage) return ogImage;
+  }
+
+  return null;
+}
+
+async function fetchOpenGraphImageFromUrl(pageUrl) {
+  const mirrors = [
+    pageUrl,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`,
+  ];
+
+  for (const url of mirrors) {
+    try {
+      const res = await fetch(url, { headers: { Accept: "text/html" } });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const image = extractMetaImageFromHtml(html, pageUrl);
+      if (image) return image;
+    } catch {
+      // Try next mirror.
+    }
+  }
+
+  return null;
+}
+
+function extractMetaImageFromHtml(html, baseUrl) {
+  if (!html) return null;
+
+  const patterns = [
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["'][^>]*>/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    const value = match?.[1]?.trim();
+    if (!value) continue;
+    try {
+      const absolute = new URL(value, baseUrl).toString();
+      if (/^https?:\/\//i.test(absolute)) return absolute;
+    } catch {
+      // Continue scanning patterns.
+    }
+  }
+
+  return null;
 }
 
 function slugToTitle(slug) {
