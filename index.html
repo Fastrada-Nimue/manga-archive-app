@@ -182,6 +182,16 @@
             <button type="button" id="cloud-pull" class="secondary">Pull From Cloud</button>
             <button type="button" id="cloud-push" class="secondary">Push To Cloud</button>
           </div>
+          <div class="actions">
+            <label class="cloud-checkbox">
+              <input id="cloud-export-include-token" type="checkbox" />
+              Include token in exported setup file
+            </label>
+            <button type="button" id="cloud-export-setup" class="secondary">Export Sync Setup</button>
+            <label class="import-btn" for="cloud-import-setup">Import Sync Setup</label>
+            <input id="cloud-import-setup" type="file" accept="application/json" />
+          </div>
+          <p class="cloud-hint">Use sync setup import/export to move cloud settings between browsers. Treat token exports like a password.</p>
           <p id="cloud-status" class="cloud-status cloud-idle">Cloud sync is not configured.</p>
         </div>
       </section>
