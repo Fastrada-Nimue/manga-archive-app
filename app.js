@@ -150,6 +150,8 @@ function onSave(event) {
     updatedAt: new Date().toISOString(),
   };
 
+  Object.assign(entry, coerceChapterProgress(entry));
+
   if (!entry.title) return;
 
   let existingIndex = -1;
@@ -597,7 +599,7 @@ function sortText(left, right) {
 }
 
 function normalizeEntry(raw) {
-  return {
+  const normalized = {
     id: raw.id || createId(),
     title: String(raw.title || ""),
     translatedTitle: String(raw.translatedTitle || ""),
@@ -615,6 +617,11 @@ function normalizeEntry(raw) {
     coverDataUrl: typeof raw.coverDataUrl === "string" ? raw.coverDataUrl : null,
     manualOrder: normalizeNumber(raw.manualOrder),
     updatedAt: raw.updatedAt || new Date().toISOString(),
+  };
+
+  return {
+    ...normalized,
+    ...coerceChapterProgress(normalized),
   };
 }
 
@@ -689,6 +696,7 @@ async function refreshEntry(id) {
     if (meta.genres?.length) next.genres = meta.genres;
     if (meta.tags?.length) next.tags = meta.tags;
     if (meta.coverUrl) next.coverDataUrl = meta.coverUrl;
+    Object.assign(next, coerceChapterProgress(next));
     next.updatedAt = new Date().toISOString();
 
     state.entries[index] = normalizeEntry(next);
@@ -1037,6 +1045,8 @@ async function fetchMetaFromUrl(raw) {
     meta.latestChapter = Math.max(...chapterCandidates);
   }
   meta.latestChapterDate = pickNewestDate(meta.latestChapterDate, estimate?.latestChapterDate);
+
+  Object.assign(meta, coerceChapterProgress(meta));
 
   return meta;
 }
@@ -1590,6 +1600,17 @@ function chaptersLeft(entry) {
   if (entry.latestChapter == null) return "?";
   if (entry.chapter == null) return String(entry.latestChapter);
   return String(Math.max(0, entry.latestChapter - entry.chapter));
+}
+
+function coerceChapterProgress(value) {
+  const chapter = normalizeNumber(value?.chapter);
+  let latestChapter = normalizeNumber(value?.latestChapter);
+
+  if (chapter != null && (latestChapter == null || latestChapter < chapter)) {
+    latestChapter = chapter;
+  }
+
+  return { chapter, latestChapter };
 }
 
 function normalizeNumber(value) {
