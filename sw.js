@@ -1,9 +1,9 @@
-const CACHE_NAME = "manga-archive-v4";
+const CACHE_NAME = "manga-archive-v5";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
+  "./styles.css?v=20260409d",
+  "./app.js?v=20260409d",
   "./manifest.webmanifest",
   "./assets/icon.svg",
   "./assets/icon-192.png",
