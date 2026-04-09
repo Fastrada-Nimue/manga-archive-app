@@ -414,11 +414,22 @@ button:hover,
 }
 
 .entry-highlight {
-  background: #ffeaa6;
   color: #4f3a00;
   border-radius: 4px;
   padding: 0 0.14em;
   box-decoration-break: clone;
+}
+
+.entry-highlight-strong {
+  background: #ffd974;
+}
+
+.entry-highlight-medium {
+  background: #ffe7a1;
+}
+
+.entry-highlight-soft {
+  background: #fff2c9;
 }
 
 .entry-details {
