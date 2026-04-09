@@ -239,7 +239,7 @@ function render() {
     : Array.from(new Set(filtered.map((entry) => statusBucket(entry.status))));
 
   elements.entries.innerHTML = requestedBuckets
-    .map((bucket) => renderStatusSection(bucket, grouped[bucket]))
+    .map((bucket) => renderStatusSection(bucket, grouped[bucket], query))
     .join("");
 
   elements.entries.querySelectorAll("button[data-action]").forEach((button) => {
@@ -276,7 +276,7 @@ function render() {
   });
 }
 
-function renderStatusSection(bucket, entries) {
+function renderStatusSection(bucket, entries, query = "") {
   const labels = {
     begun: "Begun",
     completed: "Completed",
@@ -284,7 +284,7 @@ function renderStatusSection(bucket, entries) {
   };
 
   const rows = entries.length
-    ? entries.map((entry, index) => renderEntryRow(entry, index + 1)).join("")
+    ? entries.map((entry, index) => renderEntryRow(entry, index + 1, query)).join("")
     : '<div class="entry-empty-lane">No entries in this group.</div>';
 
   return `
@@ -297,10 +297,11 @@ function renderStatusSection(bucket, entries) {
   `;
 }
 
-function renderEntryRow(entry, index) {
+function renderEntryRow(entry, index, query = "") {
   const linkHref = safeExternalHref(entry.sourceUrl);
   const leftCount = chaptersLeft(entry);
   const hasNew = leftCount !== "?" && Number(leftCount) > 0;
+  const displaySeries = entry.series || "No series";
   const coverContent = entry.coverDataUrl
     ? `<img src="${escapeHtml(entry.coverDataUrl)}" class="entry-cover entry-cover-small" alt="Cover for ${escapeHtml(entry.title)}" />`
     : `<div class="entry-cover entry-cover-small placeholder">No Cover</div>`;
@@ -313,12 +314,12 @@ function renderEntryRow(entry, index) {
       <div class="entry-index">${index}</div>
       ${coverMarkup}
       <div class="entry-main">
-        <h3 class="entry-title">${escapeHtml(entry.title)}${hasNew ? `<span class="entry-new-badge">+${leftCount}</span>` : ""}</h3>
+        <h3 class="entry-title">${highlightText(entry.title, query)}${hasNew ? `<span class="entry-new-badge">+${leftCount}</span>` : ""}</h3>
         <p class="entry-summary-line">
-          ${escapeHtml(entry.series || "No series")} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${leftCount} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
+          ${highlightText(displaySeries, query)} | Vol ${entry.volume ?? "-"} | Ch ${entry.chapter ?? "-"} / ${entry.latestChapter ?? "?"} | Left: ${leftCount} | ${escapeHtml(entry.status)} | Rating: ${entry.rating ?? "-"}
         </p>
         <div class="entry-details">
-          ${entry.translatedTitle ? `<p class="entry-subtitle">${escapeHtml(entry.translatedTitle)}</p>` : ""}
+          ${entry.translatedTitle ? `<p class="entry-subtitle">${highlightText(entry.translatedTitle, query)}</p>` : ""}
           <p class="entry-meta">Genres: ${escapeHtml((entry.genres || []).join(", ") || "-")}</p>
           <p class="entry-meta">Tags: ${escapeHtml((entry.tags || []).join(", ") || "-")}</p>
           ${entry.notes ? `<p class="entry-notes compact">${escapeHtml(entry.notes)}</p>` : ""}
@@ -1457,6 +1458,28 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(value, query) {
+  const text = String(value || "");
+  const escapedText = escapeHtml(text);
+  const rawQuery = String(query || "").trim();
+  if (!rawQuery) return escapedText;
+
+  const terms = rawQuery
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .map((term) => escapeRegExp(term));
+
+  if (!terms.length) return escapedText;
+
+  const pattern = new RegExp(`(${terms.join("|")})`, "ig");
+  return escapedText.replace(pattern, '<mark class="entry-highlight">$1</mark>');
 }
 
 function safeExternalHref(value) {
