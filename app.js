@@ -1065,6 +1065,10 @@ async function fetchAniList(id) {
         genres
         chapters
         coverImage { large }
+        nextAiringEpisode {
+          media { title { romaji } }
+          airingAt
+        }
       }
     }
   `;
@@ -1086,6 +1090,12 @@ async function fetchAniList(id) {
     NOT_YET_RELEASED: "planned",
   };
 
+  let latestChapterDate = null;
+  if (media.nextAiringEpisode?.airingAt) {
+    const timestamp = media.nextAiringEpisode.airingAt * 1000;
+    latestChapterDate = new Date(timestamp).toISOString().split("T")[0];
+  }
+
   return {
     source: "AniList",
     title: media.title?.english || media.title?.romaji || "",
@@ -1097,6 +1107,7 @@ async function fetchAniList(id) {
     status: statusMap[media.status] ?? "planned",
     latestChapter: normalizeNumber(media.chapters),
     coverUrl: media.coverImage?.large || null,
+    latestChapterDate,
   };
 }
 
@@ -1121,6 +1132,11 @@ async function fetchJikan(id) {
   else if (s.includes("Finished")) status = "completed";
   else if (s.includes("Hiatus") || s.includes("Discontinued")) status = "on-hold";
 
+  let latestChapterDate = null;
+  if (data.published?.from) {
+    latestChapterDate = data.published.from.split("T")[0];
+  }
+
   return {
     source: "MyAnimeList",
     title: data.title_english || data.title || "",
@@ -1130,6 +1146,7 @@ async function fetchJikan(id) {
     status,
     latestChapter: normalizeNumber(data.chapters),
     coverUrl: data.images?.jpg?.large_image_url || data.images?.jpg?.image_url || null,
+    latestChapterDate,
   };
 }
 
@@ -1159,6 +1176,7 @@ async function fetchManhuafastEnriched(title) {
     status: enriched?.status || "planned",
     latestChapter: enriched?.latestChapter ?? null,
     coverUrl: enriched?.coverUrl || null,
+    latestChapterDate: enriched?.latestChapterDate || null,
   };
 }
 
@@ -1180,6 +1198,10 @@ async function fetchAniListBySearch(title) {
         genres
         chapters
         coverImage { large }
+        nextAiringEpisode {
+          media { title { romaji } }
+          airingAt
+        }
       }
     }
   `;
@@ -1204,6 +1226,12 @@ async function fetchAniListBySearch(title) {
       NOT_YET_RELEASED: "planned",
     };
 
+    let latestChapterDate = null;
+    if (media.nextAiringEpisode?.airingAt) {
+      const timestamp = media.nextAiringEpisode.airingAt * 1000;
+      latestChapterDate = new Date(timestamp).toISOString().split("T")[0];
+    }
+
     return {
       title: media.title?.english || media.title?.romaji || title,
       translatedTitle: media.title?.romaji && media.title?.english && media.title.romaji !== media.title.english
@@ -1214,6 +1242,7 @@ async function fetchAniListBySearch(title) {
       status: statusMap[media.status] ?? "planned",
       latestChapter: normalizeNumber(media.chapters),
       coverUrl: media.coverImage?.large || null,
+      latestChapterDate,
     };
   } catch {
     return null;
