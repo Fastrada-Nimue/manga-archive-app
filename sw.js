@@ -1,4 +1,4 @@
-const CACHE_NAME = "manga-archive-v3";
+const CACHE_NAME = "manga-archive-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,6 +32,29 @@ self.addEventListener("fetch", (event) => {
   const isDocument =
     event.request.mode === "navigate" ||
     event.request.destination === "document";
+  const isAppShellAsset =
+    isSameOrigin &&
+    (requestUrl.pathname.endsWith("/app.js") ||
+      requestUrl.pathname.endsWith("/styles.css") ||
+      requestUrl.pathname.endsWith("/index.html"));
+
+  // For app shell assets, prefer network to avoid stale behavior after deploys.
+  if (isAppShellAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          return caches.match("./index.html");
+        }),
+    );
+    return;
+  }
 
   // For top-level pages, prefer network so installed app stays fresh online.
   if (isSameOrigin && isDocument) {
