@@ -214,7 +214,13 @@ function render() {
     return matchesText && matchesStatus && matchesGenre && matchesTag;
   });
 
-  filtered.sort((a, b) => sortEntries(a, b, sortBy));
+  filtered.sort((a, b) => {
+    if (query) {
+      const scoreDelta = getEntrySearchScore(b, query) - getEntrySearchScore(a, query);
+      if (scoreDelta !== 0) return scoreDelta;
+    }
+    return sortEntries(a, b, sortBy);
+  });
 
   if (!filtered.length) {
     elements.entries.innerHTML = '<div class="empty">No entries found.</div>';
@@ -1523,6 +1529,54 @@ function matchesEntrySearch(entry, query) {
 
   const parts = normalizedQuery.split(" ").filter(Boolean);
   return parts.every((part) => haystack.includes(part) || haystackCompact.includes(part));
+}
+
+function getEntrySearchScore(entry, query) {
+  const normalizedQuery = normalizeForComparison(query);
+  if (!normalizedQuery) return 0;
+
+  const queryCompact = normalizedQuery.replace(/\s+/g, "");
+  const parts = normalizedQuery.split(" ").filter(Boolean);
+
+  const title = normalizeForComparison(entry.title || "");
+  const translated = normalizeForComparison(entry.translatedTitle || "");
+  const series = normalizeForComparison(entry.series || "");
+  const genres = normalizeForComparison((entry.genres || []).join(" "));
+  const tags = normalizeForComparison((entry.tags || []).join(" "));
+
+  const titleCompact = title.replace(/\s+/g, "");
+  const translatedCompact = translated.replace(/\s+/g, "");
+  const seriesCompact = series.replace(/\s+/g, "");
+
+  let score = 0;
+
+  if (title === normalizedQuery) score = Math.max(score, 1200);
+  else if (title.startsWith(normalizedQuery)) score = Math.max(score, 1000);
+  else if (title.includes(normalizedQuery)) score = Math.max(score, 860);
+  else if (queryCompact && titleCompact.includes(queryCompact)) score = Math.max(score, 820);
+
+  if (translated === normalizedQuery) score = Math.max(score, 800);
+  else if (translated.startsWith(normalizedQuery)) score = Math.max(score, 740);
+  else if (translated.includes(normalizedQuery) || (queryCompact && translatedCompact.includes(queryCompact))) {
+    score = Math.max(score, 680);
+  }
+
+  if (series === normalizedQuery) score = Math.max(score, 640);
+  else if (series.startsWith(normalizedQuery)) score = Math.max(score, 600);
+  else if (series.includes(normalizedQuery) || (queryCompact && seriesCompact.includes(queryCompact))) {
+    score = Math.max(score, 560);
+  }
+
+  if (genres.includes(normalizedQuery)) score = Math.max(score, 420);
+  if (tags.includes(normalizedQuery)) score = Math.max(score, 420);
+
+  if (parts.length > 1) {
+    const searchable = [title, translated, series, genres, tags].join(" ");
+    const matchedParts = parts.filter((part) => searchable.includes(part)).length;
+    score += matchedParts * 12;
+  }
+
+  return score;
 }
 
 function normalizeForMerge(text) {
