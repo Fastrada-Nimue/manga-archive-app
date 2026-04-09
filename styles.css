@@ -323,6 +323,13 @@ button:hover,
   flex-direction: column;
 }
 
+.move-select {
+  min-width: 130px;
+  max-width: 160px;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.45rem;
+}
+
 .empty {
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -342,6 +349,10 @@ button:hover,
   border: 1px solid #b8d8cf;
   border-radius: 10px;
   padding: 0.75rem;
+}
+
+.cloud-panel {
+  margin-top: 0.35rem;
 }
 
 .cloud-sync h3 {
@@ -441,5 +452,10 @@ button:hover,
     flex-direction: row;
     flex-wrap: wrap;
     margin-top: 0.25rem;
+  }
+
+  .move-select {
+    max-width: none;
+    width: 100%;
   }
 }
