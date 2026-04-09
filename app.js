@@ -26,6 +26,7 @@ const elements = {
   volume: document.getElementById("volume"),
   chapter: document.getElementById("chapter"),
   latestChapter: document.getElementById("latest-chapter"),
+  latestChapterDate: document.getElementById("latest-chapter-date"),
   status: document.getElementById("status"),
   rating: document.getElementById("rating"),
   notes: document.getElementById("notes"),
@@ -139,6 +140,7 @@ function onSave(event) {
     volume: normalizeNumber(elements.volume.value),
     chapter: normalizeNumber(elements.chapter.value),
     latestChapter: normalizeNumber(elements.latestChapter.value),
+    latestChapterDate: elements.latestChapterDate.value || null,
     status: elements.status.value,
     rating: normalizeNumber(elements.rating.value),
     notes: elements.notes.value.trim(),
@@ -425,6 +427,7 @@ function editEntry(id) {
   elements.volume.value = entry.volume ?? "";
   elements.chapter.value = entry.chapter ?? "";
   elements.latestChapter.value = entry.latestChapter ?? "";
+  elements.latestChapterDate.value = entry.latestChapterDate || "";
   elements.status.value = entry.status || "reading";
   elements.rating.value = entry.rating ?? "";
   elements.notes.value = entry.notes || "";
@@ -563,6 +566,7 @@ function normalizeEntry(raw) {
     volume: normalizeNumber(raw.volume),
     chapter: normalizeNumber(raw.chapter),
     latestChapter: normalizeNumber(raw.latestChapter),
+    latestChapterDate: raw.latestChapterDate || null,
     status: String(raw.status || "planned"),
     rating: normalizeNumber(raw.rating),
     notes: String(raw.notes || ""),
@@ -636,6 +640,7 @@ async function refreshEntry(id) {
 
     const next = { ...state.entries[index] };
     if (meta.latestChapter != null) next.latestChapter = meta.latestChapter;
+    if (meta.latestChapterDate) next.latestChapterDate = meta.latestChapterDate;
     if (meta.status) next.status = meta.status;
     if (meta.genres?.length) next.genres = meta.genres;
     if (meta.tags?.length) next.tags = meta.tags;
@@ -1020,6 +1025,25 @@ async function fetchMangaDex(uuid) {
     ? `https://uploads.mangadex.org/covers/${uuid}/${coverFileName}.512.jpg`
     : null;
 
+  // Fetch latest chapter date
+  let latestChapterDate = null;
+  try {
+    const chaptersRes = await fetch(
+      `https://api.mangadex.org/manga/${encodeURIComponent(uuid)}/feed?limit=1&order[publishAt]=desc`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (chaptersRes.ok) {
+      const chaptersJson = await chaptersRes.json();
+      const latestChapter = chaptersJson.data?.[0];
+      if (latestChapter?.attributes?.publishAt) {
+        const dateStr = latestChapter.attributes.publishAt;
+        latestChapterDate = dateStr.split("T")[0]; // Extract YYYY-MM-DD
+      }
+    }
+  } catch {
+    // Silently fail if chapter fetch doesn't work
+  }
+
   return {
     source: "MangaDex",
     title,
@@ -1028,6 +1052,7 @@ async function fetchMangaDex(uuid) {
     tags,
     status: { ongoing: "reading", completed: "completed", hiatus: "on-hold", cancelled: "on-hold" }[attr.status] ?? "planned",
     coverUrl,
+    latestChapterDate,
   };
 }
 
@@ -1213,6 +1238,9 @@ function fillFormFromMeta(meta) {
   }
   if (meta.latestChapter != null) {
     elements.latestChapter.value = meta.latestChapter;
+  }
+  if (meta.latestChapterDate) {
+    elements.latestChapterDate.value = meta.latestChapterDate;
   }
   if (meta.chapter != null) {
     elements.chapter.value = meta.chapter;
